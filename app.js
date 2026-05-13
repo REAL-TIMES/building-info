@@ -250,7 +250,7 @@ function App() {
         )}
         {hasR && vw==='cards' && (
           <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px'}}>
-            {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} />)}
+            {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} />)}
           </div>
         )}
         {hasR && vw==='table' && <CmpT entries={rE} togglePrint={togglePrint} printMode={printMode} />}
@@ -302,9 +302,9 @@ function ERow({ e, i, n, sidos, sgs, ds, up, rm, go }) {
         <input type="text" placeholder="별칭 (선택)" value={e.alias}
           onChange={v => up(e.id, {alias:v.target.value})} style={{width:'100px',flexShrink:0}} />
 
-        <input type="number" placeholder="매매가(억)" value={e.price}
+        <input type="text" inputMode="decimal" placeholder="매매가(억)" value={e.price}
           onChange={v => up(e.id, {price:v.target.value})}
-          onKeyDown={k => k.key === 'Enter' && go(e)}
+          onKeyDown={k => (k.key === 'Enter' || k.keyCode === 13) && go(e)}
           style={{width:'88px',flexShrink:0}} />
 
         <label style={{display:'flex',alignItems:'center',gap:'4px',fontSize:'11px',color:'#999',cursor:'pointer',whiteSpace:'nowrap',paddingTop:'8px',userSelect:'none',flexShrink:0}}>
@@ -332,7 +332,7 @@ function ERow({ e, i, n, sidos, sgs, ds, up, rm, go }) {
 }
 
 // ── 결과 카드 ──
-function RCard({ e, i, onTogglePrint }) {
+function RCard({ e, i, onTogglePrint, onDelete }) {
   const it = e.res;
   const title = e.alias || it.bldNm || it.platPlc;
 
@@ -370,8 +370,15 @@ function RCard({ e, i, onTogglePrint }) {
         출력
       </label>
 
-      {/* 번호 */}
-      <div style={{position:'absolute',top:0,right:0,background:'#0d1b2a',color:'#c9a84c',width:'32px',height:'32px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',fontWeight:700}}>{i+1}</div>
+      {/* 번호 + 삭제 버튼 */}
+      <div style={{position:'absolute',top:0,right:0,display:'flex',alignItems:'center'}}>
+        <button className="screen-only" onClick={onDelete}
+          title="삭제"
+          style={{background:'transparent',border:'none',color:'#ccc',fontSize:'16px',cursor:'pointer',padding:'6px 8px',lineHeight:1,transition:'color 0.15s'}}
+          onMouseEnter={ev => ev.target.style.color='#c0392b'}
+          onMouseLeave={ev => ev.target.style.color='#ccc'}>×</button>
+        <div style={{background:'#0d1b2a',color:'#c9a84c',width:'32px',height:'32px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',fontWeight:700}}>{i+1}</div>
+      </div>
 
       {/* 제목 영역 */}
       <div style={{paddingRight:'40px',paddingLeft:'22px',marginBottom:'8px'}}>
