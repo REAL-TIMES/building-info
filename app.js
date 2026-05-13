@@ -208,12 +208,14 @@ function App() {
             <button className={vw==='table' ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('table')}>≡ 비교표</button>
           </div>
           <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-            <span style={{fontSize:'11px',color:'#aaa'}}>인쇄 방향:</span>
-            <button className={printMode==='landscape' ? 'bdk' : 'blt'} style={{fontSize:'11px',padding:'5px 10px'}} onClick={() => setPM('landscape')}>가로 3칸</button>
-            <button className={printMode==='portrait'  ? 'bdk' : 'blt'} style={{fontSize:'11px',padding:'5px 10px'}} onClick={() => setPM('portrait')}>세로 4칸</button>
+            {vw === 'cards' && <>
+              <span style={{fontSize:'11px',color:'#aaa'}}>인쇄 방향:</span>
+              <button className={printMode==='landscape' ? 'bdk' : 'blt'} style={{fontSize:'11px',padding:'5px 10px'}} onClick={() => setPM('landscape')}>가로 3칸</button>
+              <button className={printMode==='portrait'  ? 'bdk' : 'blt'} style={{fontSize:'11px',padding:'5px 10px'}} onClick={() => setPM('portrait')}>세로 4칸</button>
+            </>}
             <input type="text" placeholder="보고서 제목" value={reportTitle}
               onChange={v => setRT(v.target.value)}
-              style={{width:'180px',fontSize:'12px',marginLeft:'6px'}} />
+              style={{width:'180px',fontSize:'12px'}} />
             <input type="date" value={reportDate}
               onChange={v => setRD(v.target.value)}
               style={{fontSize:'12px',width:'140px'}} />
@@ -222,11 +224,11 @@ function App() {
         </div>
       )}
 
-      {/* 인쇄 방향별 동적 스타일 */}
+      {/* 인쇄 방향 동적 스타일 — 비교표는 항상 가로 고정 */}
       <style dangerouslySetInnerHTML={{__html:
-        printMode === 'portrait'
-          ? '@media print { @page { size: A4 portrait !important; margin: 12mm 14mm 16mm; } .cg { grid-template-columns: 1fr 1fr !important; } }'
-          : '@media print { @page { size: A4 landscape !important; margin: 12mm 14mm 16mm; } .cg { grid-template-columns: 1fr 1fr 1fr !important; } }'
+        (vw === 'table' || printMode === 'landscape')
+          ? '@media print { @page { size: A4 landscape !important; margin: 10mm 12mm 14mm; } .cg { grid-template-columns: 1fr 1fr 1fr !important; } }'
+          : '@media print { @page { size: A4 portrait !important; margin: 12mm 14mm 16mm; } .cg { grid-template-columns: 1fr 1fr !important; } }'
       }} />
 
       {/* 인쇄 헤더 */}
@@ -446,34 +448,29 @@ function CmpT({ entries, togglePrint, printMode }) {
     chunks.push({ items: printEntries.slice(i, i + splitSize), startIdx: i });
   }
 
-  // 텍스트형 컬럼 (좌정렬), 나머지는 중앙정렬
-  const TEXT_COLS = new Set(['주소','주용도','용도지역','주구조']);
+  // 모든 데이터 셀 중앙정렬 (일관성)
+  const thBase  = { background:'#0d1b2a',color:'#f7f4ef',padding:'8px 10px',border:'1px solid #0d1b2a',fontWeight:500,fontSize:'11px',verticalAlign:'middle' };
+  const plcBase = { background:'#f0ede6',padding:'6px 10px',color:'#555',fontWeight:600,border:'1px solid #ddd8d0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'11px',textAlign:'center' };
+  const golBase = { background:'#fff3dc',padding:'6px 10px',color:'#b86c00',fontWeight:700,border:'1px solid #ddd8d0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'11px',textAlign:'center' };
 
-  const thBase   = { background:'#0d1b2a',color:'#f7f4ef',padding:'10px 12px',border:'1px solid #0d1b2a',fontWeight:500,fontSize:'12px',verticalAlign:'middle' };
-  const plcBase  = { background:'#f0ede6',padding:'8px 12px',color:'#555',fontWeight:600,border:'1px solid #ddd8d0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'11px',letterSpacing:'0.02em' };
-  const golBase  = { background:'#fff3dc',padding:'8px 12px',color:'#b86c00',fontWeight:700,border:'1px solid #ddd8d0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'11px' };
-
-  const td = (isText, stripe) => ({
-    padding: '8px 12px',
+  const td = (stripe) => ({
+    padding: '6px 10px',
     border: '1px solid #ddd8d0',
     verticalAlign: 'middle',
-    fontSize: '12px',
-    lineHeight: 1.5,
-    textAlign: isText ? 'left' : 'center',
+    fontSize: '11px',
+    lineHeight: 1.4,
+    textAlign: 'center',
     background: stripe ? '#faf9f6' : 'white',
-    wordBreak: isText ? 'keep-all' : 'normal',
-    whiteSpace: isText ? 'normal' : 'nowrap',
+    whiteSpace: 'normal',
+    wordBreak: 'keep-all',
   });
 
   const renderRows = (cols) => {
     let rowIdx = 0;
     const stripe = () => rowIdx++ % 2 === 0;
 
-    // 주소행
     const s0 = stripe();
-    // 매매가행
     const s1 = stripe();
-    // 평단가행
     const s2 = stripe();
 
     return (
@@ -481,12 +478,12 @@ function CmpT({ entries, togglePrint, printMode }) {
         {/* 1. 주소 */}
         <tr>
           <td style={{...plcBase, background: s0 ? '#f0ede6' : '#e8e4dc'}}>주소</td>
-          {cols.map(e => <td key={e.id} style={td(true, s0)}>{e.res ? (e.res.platPlc || '—') : '—'}</td>)}
+          {cols.map(e => <td key={e.id} style={td(s0)}>{e.res ? (e.res.platPlc || '—') : '—'}</td>)}
         </tr>
         {/* 2. 매매가 */}
         <tr>
           <td style={{...golBase, background: s1 ? '#fff3dc' : '#fde8b8'}}>매매가</td>
-          {cols.map(e => <td key={e.id} style={{...td(false, s1), fontWeight:600, color:'#1a1a2e'}}>
+          {cols.map(e => <td key={e.id} style={{...td(s1), fontWeight:600, color:'#1a1a2e'}}>
             {e.price && parseFloat(e.price) > 0 ? parseFloat(e.price) + '억원' : '—'}
           </td>)}
         </tr>
@@ -497,17 +494,16 @@ function CmpT({ entries, togglePrint, printMode }) {
             const pPy = e.res && e.res.platArea && parseFloat(e.res.platArea) > 0 ? parseFloat(e.res.platArea) / PY : null;
             const pN  = e.price && parseFloat(e.price) > 0 ? parseFloat(e.price) : null;
             const pp  = (pN && pPy) ? Math.round(pN * 10000 / pPy).toLocaleString() : null;
-            return <td key={e.id} style={{...td(false, s2), fontWeight:600, color:'#1a1a2e'}}>{pp ? pp + '만원/평' : '—'}</td>;
+            return <td key={e.id} style={{...td(s2), fontWeight:600, color:'#1a1a2e'}}>{pp ? pp + '만원/평' : '—'}</td>;
           })}
         </tr>
-        {/* 나머지 COLS */}
+        {/* 나머지 COLS (주소 제외) */}
         {COLS.slice(1).map(col => {
           const s = stripe();
-          const isTxt = TEXT_COLS.has(col.l);
           return (
             <tr key={col.l}>
               <td style={{...plcBase, background: s ? '#f0ede6' : '#e8e4dc'}}>{col.l}</td>
-              {cols.map(e => <td key={e.id} style={td(isTxt, s)}>{e.res ? col.f(e.res) : '—'}</td>)}
+              {cols.map(e => <td key={e.id} style={td(s)}>{e.res ? col.f(e.res) : '—'}</td>)}
             </tr>
           );
         })}
@@ -518,7 +514,7 @@ function CmpT({ entries, togglePrint, printMode }) {
   const renderHead = (cols, showCheck, startIdx) => (
     <thead>
       <tr>
-        <th style={{...plcBase, minWidth:'90px', textAlign:'center', background:'#0d1b2a', color:'#c9a84c', fontSize:'11px'}}>항목</th>
+        <th style={{...plcBase, minWidth:'80px', background:'#0d1b2a', color:'#c9a84c', fontSize:'11px'}}>항목</th>
         {cols.map((e, i) => (
           <th key={e.id} className="ptk" style={{...thBase, textAlign:'left'}}>
             <div style={{display:'flex',alignItems:'flex-start',gap:'6px'}}>
@@ -529,12 +525,12 @@ function CmpT({ entries, togglePrint, printMode }) {
                 </label>
               )}
               <div>
-                <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'3px'}}>
-                  <span style={{background:'#c9a84c',color:'white',minWidth:'18px',height:'18px',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700,flexShrink:0}}>{startIdx + i + 1}</span>
-                  <span style={{fontWeight:600}}>{e.alias || (e.res && e.res.bldNm) || ('건물 ' + (startIdx + i + 1))}</span>
+                <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'2px'}}>
+                  <span style={{background:'#c9a84c',color:'white',minWidth:'16px',height:'16px',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700,flexShrink:0}}>{startIdx + i + 1}</span>
+                  <span style={{fontWeight:600,fontSize:'11px'}}>{e.alias || (e.res && e.res.bldNm) || ('건물 ' + (startIdx + i + 1))}</span>
                 </div>
                 {e.res && e.res.platPlc && (
-                  <div style={{fontSize:'10px',color:'#aac',lineHeight:1.3}}>{e.res.platPlc}</div>
+                  <div style={{fontSize:'10px',color:'#9ab',lineHeight:1.3}}>{e.res.platPlc}</div>
                 )}
               </div>
             </div>
@@ -546,10 +542,6 @@ function CmpT({ entries, togglePrint, printMode }) {
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{__html:
-        '@media print { @page { size: A4 landscape !important; margin: 10mm 12mm 15mm; } }'
-      }} />
-
       {/* 화면 */}
       <div className="screen-only" style={{overflowX:'auto',marginTop:'8px',borderRadius:'2px',boxShadow:'0 1px 4px rgba(0,0,0,0.08)'}}>
         <table style={{width:'100%',borderCollapse:'collapse'}}>
@@ -558,7 +550,7 @@ function CmpT({ entries, togglePrint, printMode }) {
         </table>
       </div>
 
-      {/* 인쇄 — 페이지 분할 */}
+      {/* 인쇄 — 페이지 분할 (App 동적 스타일이 landscape 보장) */}
       {chunks.map((chunk, ci) => (
         <div key={ci} className="print-only"
           style={{pageBreakBefore: ci > 0 ? 'always' : 'auto',
