@@ -556,8 +556,11 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
         <div style={{fontSize:'10px',letterSpacing:'0.1em',color:'#c9a84c',marginBottom:'2px'}}>
           {[it.mainPurpsCdNm, it.etcPurps].filter(Boolean).join(' · ')}
         </div>
-        {it.jiyukCdNm && (
-          <div style={{fontSize:'10px',color:'#888',marginBottom:'4px'}}>{it.jiyukCdNm}</div>
+        {(it.jiyukCdNm || m.jiyukCdNm) && (
+          <div style={{fontSize:'10px',color:'#888',marginBottom:'4px'}}>
+            {m.jiyukCdNm || it.jiyukCdNm}
+            {m.jiyukCdNm && <span style={{color:'#c9a84c',marginLeft:'4px',fontSize:'9px'}}>✓수기</span>}
+          </div>
         )}
         <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'20px',fontWeight:600,lineHeight:1.2,marginBottom:'4px',color:'#0d1b2a'}}>{title}</div>
         <div style={{fontSize:'11px',color:'#999'}}>{it.platPlc}</div>
@@ -699,6 +702,18 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
                   onChange={ev => onManual(e.id, 'hhldCnt', ev.target.value)}
                   style={{width:'100%',fontSize:'12px',padding:'4px 6px',border:'1px solid ' + (m.hhldCnt ? '#c9a84c' : '#e0dcd4'),boxSizing:'border-box'}} />
               </div>
+              {/* 용도지역 — 전체 폭 */}
+              <div style={{gridColumn:'1 / -1'}}>
+                <div style={{fontSize:'10px',color:'#888',marginBottom:'2px'}}>
+                  용도지역
+                  {it.jiyukCdNm && !m.jiyukCdNm && <span style={{color:'#ccc',marginLeft:'4px'}}>(API: {it.jiyukCdNm})</span>}
+                  {m.jiyukCdNm && <span style={{color:'#c9a84c',marginLeft:'4px'}}>수기입력</span>}
+                </div>
+                <input type="text" value={m.jiyukCdNm||''}
+                  placeholder={it.jiyukCdNm || '예: 제2종일반주거지역'}
+                  onChange={ev => onManual(e.id, 'jiyukCdNm', ev.target.value)}
+                  style={{width:'100%',fontSize:'12px',padding:'4px 6px',border:'1px solid ' + (m.jiyukCdNm ? '#c9a84c' : '#e0dcd4'),boxSizing:'border-box'}} />
+              </div>
             </div>
           </div>
         )}
@@ -718,10 +733,11 @@ const mergeEntry = (e) => {
     ? (parseFloat(it.vlRatEstmTotArea || it.totArea) / manualPlat * 100).toFixed(1) : null;
   return {
     ...it,
-    platArea: m.platArea || it.platArea,
-    bcRat:    m.bcRat    || autoBcRat || it.bcRat,
-    vlRat:    m.vlRat    || autoVlRat || it.vlRat,
-    hhldCnt:  m.hhldCnt  || it.hhldCnt,
+    platArea:  m.platArea  || it.platArea,
+    bcRat:     m.bcRat     || autoBcRat || it.bcRat,
+    vlRat:     m.vlRat     || autoVlRat || it.vlRat,
+    hhldCnt:   m.hhldCnt   || it.hhldCnt,
+    jiyukCdNm: m.jiyukCdNm || it.jiyukCdNm,
   };
 };
 
