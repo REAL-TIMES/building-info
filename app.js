@@ -195,6 +195,12 @@ function App() {
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
             <span style={{fontSize:'11px',color:'#888'}}>조회 건물 목록 · {ents.length}건</span>
             <div style={{display:'flex',gap:'8px'}}>
+              {ents.length > 1 && (
+                <button className="blt" style={{fontSize:'11px',padding:'6px 14px',color:'#c0392b',borderColor:'#e8b4b0'}}
+                  onClick={() => { if(window.confirm('모든 건물을 삭제하시겠습니까?')) setE([mk(1)]); }}>
+                  전체삭제
+                </button>
+              )}
               <button className="blt" style={{fontSize:'11px',padding:'6px 14px'}} onClick={add}>+ 건물 추가</button>
               <button className="bdk" onClick={() => ents.forEach(e => go(e))}>
                 {ents.some(e => e.ld) ? '조회 중…' : '전체 조회 ▶'}
@@ -265,6 +271,21 @@ function App() {
             <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px'}}>
               {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} onManual={upManual} />)}
             </div>
+
+            {/* 카드 하단 건물추가 + 전체삭제 */}
+            <div className="no-print" style={{display:'flex',justifyContent:'center',gap:'10px',marginTop:'24px',paddingBottom:'8px'}}>
+              <button className="blt" style={{fontSize:'12px',padding:'9px 22px'}}
+                onClick={() => { add(); window.scrollTo({top:0, behavior:'smooth'}); }}>
+                + 건물 추가
+              </button>
+              {ents.length > 1 && (
+                <button className="blt" style={{fontSize:'12px',padding:'9px 22px',color:'#c0392b',borderColor:'#e8b4b0'}}
+                  onClick={() => { if(window.confirm('모든 건물을 삭제하시겠습니까?')) setE([mk(1)]); }}>
+                  전체 삭제
+                </button>
+              )}
+            </div>
+
             {/* 카드 인쇄 푸터 */}
             <div className="print-only">
               <PrintFooter bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />
