@@ -29,11 +29,14 @@
 
     /* 인쇄 */
     @media print {
-      .np  { display: none !important; }
+      .no-print   { display: none !important; }
+      .screen-only{ display: none !important; }
+      .print-hide { display: none !important; }
       .ph  { display: block !important; }
       body { background: white; }
-      @page { margin: 12mm 10mm; size: A4; }
-      .cg  { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 14px !important; }
+      @page { margin: 10mm 12mm; size: A4 landscape; }
+      * { overflow: visible !important; max-height: none !important; }
+      .cg  { display: grid !important; grid-template-columns: 1fr 1fr 1fr !important; gap: 12px !important; }
       .ptk { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #0d1b2a !important; color: white !important; }
       .plc { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #f7f4ef !important; }
     }

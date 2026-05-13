@@ -66,7 +66,7 @@ const PY = 3.3058;
 const py  = v => v ? (parseFloat(v) / PY).toFixed(1) : null;
 const m2  = v => (v != null && v !== '' && parseFloat(v) > 0)
   ? parseFloat(v).toFixed(1) + '㎡ (약 ' + py(v) + '평)' : '—';
-const pct = v => (v != null && v !== '') ? parseFloat(v).toFixed(1) + '%' : '—';
+const pct = v => (v != null && v !== '' && parseFloat(v) > 0) ? parseFloat(v).toFixed(1) + '%' : '—';
 const dt  = v => {
   if (!v) return '—';
   const s = String(v).replace(/-/g, '');
@@ -78,19 +78,19 @@ const parseBJ = str => {
   return m ? { bun: p4(m[1]), ji: p4(m[2] || 0) } : null;
 };
 
-// ── 비교 항목 ──
+// ── 비교표 항목 (높이 제거, 용도지역 추가) ──
 const COLS = [
   { l:'대지위치',        f: i => i.platPlc || '—' },
   { l:'주용도',          f: i => [i.mainPurpsCdNm, i.etcPurps].filter(Boolean).join(' / ') || '—' },
-  { l:'주구조',          f: i => i.mainStrctCdNm || '—' },
+  { l:'용도지역',        f: i => i.jiyukCdNm || '—' },
+  { l:'주구조',          f: i => i.strctCdNm || i.mainStrctCdNm || '—' },
   { l:'대지면적',        f: i => m2(i.platArea) },
-  { l:'건축면적',        f: i => m2(i.archArea) },
   { l:'연면적',          f: i => m2(i.totArea) },
+  { l:'건축면적',        f: i => m2(i.archArea) },
   { l:'용적률산정연면적',f: i => m2(i.vlRatEstmTotArea) },
   { l:'건폐율',          f: i => pct(i.bcRat) },
   { l:'용적률',          f: i => pct(i.vlRat) },
   { l:'층수',            f: i => '지상 ' + (i.grndFlrCnt||0) + '층 / 지하 ' + (i.ugrndFlrCnt||0) + '층' },
-  { l:'높이',            f: i => i.heit ? i.heit + 'm' : '—' },
   { l:'세대수',          f: i => i.hhldCnt ? parseInt(i.hhldCnt).toLocaleString() + '세대' : '—' },
   { l:'승강기',          f: i => {
     const r = parseInt(i.rideUseElvtCnt) || 0, e = parseInt(i.emgenUseElvtCnt) || 0;
@@ -103,7 +103,9 @@ const COLS = [
 let _id = 2;
 const mk = id => ({
   id, sido:'서울특별시', sg:'강남구', dong:'', bj:'', alias:'',
-  man:false, mSg:'', mD:'', res:null, ld:false, err:null
+  man:false, mSg:'', mD:'', res:null, ld:false, err:null,
+  price:'',      // 매매가 (억원)
+  printSel:true  // 인쇄 선택
 });
 
 // ════════════════════════════════════════════════════
@@ -113,9 +115,10 @@ function App() {
   const [ents, setE] = useState([mk(1)]);
   const [vw, setV]   = useState('cards');
 
-  const up  = (id, d) => setE(p => p.map(e => e.id === id ? {...e, ...d} : e));
-  const add = ()      => setE(p => [...p, mk(_id++)]);
-  const rm  = id      => setE(p => p.filter(e => e.id !== id));
+  const up          = (id, d) => setE(p => p.map(e => e.id === id ? {...e, ...d} : e));
+  const add         = ()      => setE(p => [...p, mk(_id++)]);
+  const rm          = id      => setE(p => p.filter(e => e.id !== id));
+  const togglePrint = id      => setE(p => p.map(e => e.id === id ? {...e, printSel:!e.printSel} : e));
 
   const go = async ent => {
     up(ent.id, { ld:true, err:null });
@@ -137,7 +140,8 @@ function App() {
         '/api/building?sigunguCd=' + sC +
         '&bjdongCd=' + bC +
         '&bun=' + p.bun +
-        '&ji='  + p.ji
+        '&ji='  + p.ji +
+        '&_t='  + Date.now()
       );
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const d = await res.json();
@@ -146,10 +150,10 @@ function App() {
         throw new Error(d.response.header.resultMsg || '조회 실패');
 
       const raw = d.response && d.response.body && d.response.body.items && d.response.body.items.item;
-      if (!raw) throw new Error('결과 없음 — 주소·번지를 재확인하세요');
+      const itemArr = !raw ? [] : (Array.isArray(raw) ? raw : [raw]);
+      if (itemArr.length === 0) throw new Error('결과 없음 — 네이버 지도에서 지번을 확인하세요');
 
-      const items = Array.isArray(raw) ? raw : [raw];
-      const main  = items.find(i => i.mainAtchGbCd === '0') || items[0];
+      const main = itemArr.find(i => i.mainAtchGbCd === '0') || itemArr[0];
       up(ent.id, { ld:false, res:main });
     } catch(e) {
       up(ent.id, { ld:false, err: e.message });
@@ -165,8 +169,8 @@ function App() {
   return (
     <div style={{fontFamily:"'Noto Sans KR',sans-serif",background:'#f7f4ef',minHeight:'100vh',color:'#1a1a2e'}}>
 
-      {/* 헤더 */}
-      <header style={{background:'#0d1b2a',padding:'18px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      {/* 헤더 — 화면 전용 */}
+      <header className="no-print" style={{background:'#0d1b2a',padding:'18px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div>
           <div style={{fontSize:'10px',letterSpacing:'0.15em',color:'#c9a84c',marginBottom:'3px'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'22px',color:'#f7f4ef',fontWeight:400}}>건축물대장 비교 조회</div>
@@ -174,8 +178,8 @@ function App() {
         <div style={{fontSize:'11px',color:'#c9a84c',border:'1px solid #c9a84c',padding:'6px 12px'}}>건축물대장정보 서비스</div>
       </header>
 
-      {/* 입력 패널 */}
-      <section style={{background:'#ede9e1',padding:'18px 28px 20px',borderBottom:'1px solid #d8d4cc'}}>
+      {/* 입력 패널 — 화면 전용 */}
+      <section className="no-print" style={{background:'#ede9e1',padding:'18px 28px 20px',borderBottom:'1px solid #d8d4cc'}}>
         <div style={{maxWidth:'1280px',margin:'0 auto'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
             <span style={{fontSize:'11px',color:'#888'}}>조회 건물 목록 · {ents.length}건</span>
@@ -193,9 +197,9 @@ function App() {
         </div>
       </section>
 
-      {/* 뷰 전환 */}
+      {/* 뷰 전환 + 인쇄 — 화면 전용 */}
       {hasR && (
-        <div style={{padding:'12px 28px',display:'flex',gap:'8px',justifyContent:'space-between',maxWidth:'1280px',margin:'0 auto'}}>
+        <div className="no-print" style={{padding:'12px 28px',display:'flex',gap:'8px',justifyContent:'space-between',maxWidth:'1280px',margin:'0 auto'}}>
           <div style={{display:'flex',gap:'6px'}}>
             <button className={vw==='cards' ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('cards')}>▣ 카드</button>
             <button className={vw==='table' ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('table')}>≡ 비교표</button>
@@ -211,11 +215,11 @@ function App() {
             <div style={{fontSize:'9px',letterSpacing:'0.15em',color:'#c9a84c'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'26px',fontWeight:500}}>건축물대장 비교 보고서</div>
           </div>
-          <div style={{textAlign:'right',fontSize:'11px',color:'#888'}}>{new Date().toLocaleDateString('ko-KR')} · 총 {rE.length}건</div>
+          <div style={{textAlign:'right',fontSize:'11px',color:'#888'}}>{new Date().toLocaleDateString('ko-KR')} · 총 {rE.filter(e=>e.printSel).length}건</div>
         </div>
       </div>
 
-      {/* 결과 */}
+      {/* 결과 영역 */}
       <main style={{padding:'10px 28px 48px',maxWidth:'1280px',margin:'0 auto'}}>
         {!hasR && (
           <div style={{textAlign:'center',padding:'80px 0',color:'#ccc'}}>
@@ -225,7 +229,7 @@ function App() {
         )}
         {hasR && vw==='cards' && (
           <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px'}}>
-            {rE.map((e, i) => <RCard key={e.id} e={e} i={i} />)}
+            {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} />)}
           </div>
         )}
         {hasR && vw==='table' && <CmpT entries={rE} />}
@@ -263,9 +267,9 @@ function ERow({ e, i, n, sidos, sgs, ds, up, rm, go }) {
         ) : (
           <>
             <input type="text" placeholder="시군구코드 5자리" value={e.mSg}
-              onChange={v => up(e.id, {mSg:v.target.value})} style={{width:'160px',flexShrink:0}} />
+              onChange={v => up(e.id, {mSg:v.target.value})} style={{width:'140px',flexShrink:0}} />
             <input type="text" placeholder="법정동코드 5자리" value={e.mD}
-              onChange={v => up(e.id, {mD:v.target.value})} style={{width:'160px',flexShrink:0}} />
+              onChange={v => up(e.id, {mD:v.target.value})} style={{width:'140px',flexShrink:0}} />
           </>
         )}
 
@@ -273,8 +277,13 @@ function ERow({ e, i, n, sidos, sgs, ds, up, rm, go }) {
           onChange={v => up(e.id, {bj:v.target.value})}
           onKeyDown={k => k.key === 'Enter' && go(e)}
           style={{width:'100px',flexShrink:0}} />
+
         <input type="text" placeholder="별칭 (선택)" value={e.alias}
-          onChange={v => up(e.id, {alias:v.target.value})} style={{width:'120px',flexShrink:0}} />
+          onChange={v => up(e.id, {alias:v.target.value})} style={{width:'100px',flexShrink:0}} />
+
+        <input type="number" placeholder="매매가(억)" value={e.price}
+          onChange={v => up(e.id, {price:v.target.value})}
+          style={{width:'88px',flexShrink:0}} />
 
         <label style={{display:'flex',alignItems:'center',gap:'4px',fontSize:'11px',color:'#999',cursor:'pointer',whiteSpace:'nowrap',paddingTop:'8px',userSelect:'none',flexShrink:0}}>
           <input type="checkbox" checked={e.man} onChange={v => up(e.id, {man:v.target.checked})} />
@@ -294,41 +303,68 @@ function ERow({ e, i, n, sidos, sgs, ds, up, rm, go }) {
       {e.err && <div style={{marginTop:'8px',marginLeft:'34px',fontSize:'12px',color:'#c0392b',background:'#fff5f4',padding:'6px 10px'}}>⚠ {e.err}</div>}
       {e.res && <div style={{marginTop:'8px',marginLeft:'34px',fontSize:'12px',color:'#2e7d32',background:'#f1f8e9',padding:'6px 10px'}}>
         ✓ {e.res.platPlc} — {[e.res.mainPurpsCdNm, e.res.etcPurps].filter(Boolean).join(' / ')}
+        {e.res.jiyukCdNm && <span style={{marginLeft:'8px',color:'#666'}}>│ {e.res.jiyukCdNm}</span>}
       </div>}
     </div>
   );
 }
 
 // ── 결과 카드 ──
-function RCard({ e, i }) {
+function RCard({ e, i, onTogglePrint }) {
   const it = e.res;
   const title = e.alias || it.bldNm || it.platPlc;
+
+  // 매매가 & 대지 평단가
+  const priceNum = e.price && parseFloat(e.price) > 0 ? parseFloat(e.price) : null;
+  const platPy   = it.platArea && parseFloat(it.platArea) > 0 ? parseFloat(it.platArea) / PY : null;
+  const ppPy     = (priceNum && platPy) ? (priceNum / platPy).toFixed(2) : null;
+
+  // 상단 3칸 (건폐율, 용적률, 세대수)
   const s3 = [
     { l:'건폐율', v: pct(it.bcRat) },
     { l:'용적률', v: pct(it.vlRat) },
     { l:'세대수', v: it.hhldCnt ? parseInt(it.hhldCnt).toLocaleString() + '세대' : '—' },
   ];
+
+  // 하단 rows: 연면적, 건축면적, 층수, 승강기, 사용승인 — 항상 표시 (없으면 "—")
+  const elvt = (parseInt(it.rideUseElvtCnt) || parseInt(it.emgenUseElvtCnt))
+    ? '승용 ' + (parseInt(it.rideUseElvtCnt)||0) + '대 / 비상 ' + (parseInt(it.emgenUseElvtCnt)||0) + '대'
+    : '—';
   const rows = [
-    { l:'주구조',   v: it.mainStrctCdNm },
-    { l:'대지면적', v: m2(it.platArea) },
+    { l:'연면적',   v: m2(it.totArea) },
     { l:'건축면적', v: m2(it.archArea) },
     { l:'층수',     v: '지상 ' + (it.grndFlrCnt||0) + '층 / 지하 ' + (it.ugrndFlrCnt||0) + '층' },
-    { l:'높이',     v: it.heit ? it.heit + 'm' : null },
-    { l:'승강기',   v: (parseInt(it.rideUseElvtCnt) || parseInt(it.emgenUseElvtCnt))
-      ? '승용 ' + (it.rideUseElvtCnt||0) + '대 / 비상 ' + (it.emgenUseElvtCnt||0) + '대' : null },
+    { l:'승강기',   v: elvt },
     { l:'사용승인', v: dt(it.useAprDay) },
-  ].filter(r => r.v && r.v !== '—');
+  ];
 
   return (
-    <div style={{background:'white',border:'1px solid #e0dcd4',padding:'24px',position:'relative'}}>
+    <div className={e.printSel ? '' : 'print-hide'}
+         style={{background:'white',border:'1px solid #e0dcd4',padding:'24px',position:'relative'}}>
+
+      {/* 인쇄 선택 체크박스 — 화면 전용 */}
+      <label className="screen-only" style={{position:'absolute',top:'7px',left:'7px',display:'flex',alignItems:'center',gap:'3px',fontSize:'10px',color:'#aaa',cursor:'pointer',zIndex:1}}>
+        <input type="checkbox" checked={e.printSel} onChange={() => onTogglePrint(e.id)} />
+        출력
+      </label>
+
+      {/* 번호 */}
       <div style={{position:'absolute',top:0,right:0,background:'#0d1b2a',color:'#c9a84c',width:'32px',height:'32px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',fontWeight:700}}>{i+1}</div>
-      <div style={{paddingRight:'40px',marginBottom:'16px'}}>
-        <div style={{fontSize:'10px',letterSpacing:'0.1em',color:'#c9a84c',marginBottom:'4px'}}>
+
+      {/* 제목 영역 */}
+      <div style={{paddingRight:'40px',paddingLeft:'22px',marginBottom:'16px'}}>
+        <div style={{fontSize:'10px',letterSpacing:'0.1em',color:'#c9a84c',marginBottom:'2px'}}>
           {[it.mainPurpsCdNm, it.etcPurps].filter(Boolean).join(' · ')}
         </div>
+        {it.jiyukCdNm && (
+          <div style={{fontSize:'10px',color:'#888',marginBottom:'4px'}}>{it.jiyukCdNm}</div>
+        )}
         <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'20px',fontWeight:600,lineHeight:1.2,marginBottom:'4px',color:'#0d1b2a'}}>{title}</div>
         <div style={{fontSize:'11px',color:'#999'}}>{it.platPlc}</div>
+        {it.newPlatPlc && <div style={{fontSize:'10px',color:'#bbb',marginTop:'2px'}}>{it.newPlatPlc}</div>}
       </div>
+
+      {/* 상단 3칸 */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'1px',background:'#e0dcd4',marginBottom:'12px'}}>
         {s3.map(s => (
           <div key={s.l} style={{background:'#faf9f5',padding:'10px 6px',textAlign:'center'}}>
@@ -337,15 +373,31 @@ function RCard({ e, i }) {
           </div>
         ))}
       </div>
-      {it.totArea && parseFloat(it.totArea) > 0 && (
-        <div style={{background:'#f5f2eb',padding:'9px 12px',marginBottom:'14px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #c9a84c'}}>
-          <span style={{fontSize:'11px',color:'#888'}}>연면적</span>
+
+      {/* 대지면적 강조 박스 */}
+      <div style={{background:'#f5f2eb',padding:'9px 12px',marginBottom:'4px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #c9a84c'}}>
+        <span style={{fontSize:'11px',color:'#888'}}>대지면적</span>
+        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:600,color:'#0d1b2a'}}>
+          {it.platArea && parseFloat(it.platArea) > 0
+            ? <>{parseFloat(it.platArea).toFixed(1)}㎡ <span style={{fontSize:'13px',fontWeight:400,color:'#888'}}>({py(it.platArea)}평)</span></>
+            : '—'}
+        </span>
+      </div>
+
+      {/* 매매가 & 평단가 */}
+      {priceNum && (
+        <div style={{background:'#fff9ec',padding:'9px 12px',marginBottom:'4px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #e8a020'}}>
+          <span style={{fontSize:'11px',color:'#888'}}>매매가</span>
           <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:600,color:'#0d1b2a'}}>
-            {parseFloat(it.totArea).toFixed(1)}㎡
-            <span style={{fontSize:'13px',fontWeight:400,color:'#888',marginLeft:'6px'}}>({py(it.totArea)}평)</span>
+            {priceNum}억
+            {ppPy && <span style={{fontSize:'12px',fontWeight:400,color:'#888',marginLeft:'8px'}}>대지 평당 {ppPy}억</span>}
           </span>
         </div>
       )}
+
+      <div style={{height:'10px'}} />
+
+      {/* 하단 rows */}
       <div>
         {rows.map(r => (
           <div key={r.l} style={{display:'flex',gap:'12px',fontSize:'12px',padding:'5px 0',borderBottom:'1px solid #f0ece4'}}>
@@ -367,7 +419,8 @@ function CmpT({ entries }) {
           <tr>
             <th className="plc" style={{background:'#f7f4ef',color:'#666',padding:'10px 14px',textAlign:'left',border:'1px solid #e0dcd4',minWidth:'110px',fontWeight:500,whiteSpace:'nowrap'}}>항목</th>
             {entries.map((e, i) => (
-              <th key={e.id} className="ptk" style={{background:'#0d1b2a',color:'#f7f4ef',padding:'10px 14px',textAlign:'left',border:'1px solid #0d1b2a',minWidth:'190px',fontWeight:500}}>
+              <th key={e.id} className={'ptk' + (e.printSel ? '' : ' print-hide')}
+                style={{background:'#0d1b2a',color:'#f7f4ef',padding:'10px 14px',textAlign:'left',border:'1px solid #0d1b2a',minWidth:'190px',fontWeight:500}}>
                 <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                   <span style={{background:'#c9a84c',color:'white',minWidth:'20px',height:'20px',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700,flexShrink:0}}>{i+1}</span>
                   <span>{e.alias || (e.res && e.res.bldNm) || ('건물 ' + (i+1))}</span>
@@ -377,11 +430,39 @@ function CmpT({ entries }) {
           </tr>
         </thead>
         <tbody>
+          {/* 매매가 행 */}
+          <tr>
+            <td className="plc" style={{background:'#fff9ec',padding:'9px 14px',color:'#c87000',fontWeight:600,border:'1px solid #e0dcd4',whiteSpace:'nowrap'}}>매매가</td>
+            {entries.map(e => (
+              <td key={e.id} className={e.printSel ? '' : 'print-hide'}
+                style={{padding:'9px 14px',border:'1px solid #e0dcd4',fontWeight:500}}>
+                {e.price && parseFloat(e.price) > 0 ? parseFloat(e.price) + '억원' : '—'}
+              </td>
+            ))}
+          </tr>
+          {/* 대지 평단가 행 */}
+          <tr>
+            <td className="plc" style={{background:'#fff9ec',padding:'9px 14px',color:'#c87000',fontWeight:600,border:'1px solid #e0dcd4',whiteSpace:'nowrap'}}>대지 평단가</td>
+            {entries.map(e => {
+              const pPy = e.res && e.res.platArea && parseFloat(e.res.platArea) > 0
+                ? parseFloat(e.res.platArea) / PY : null;
+              const pN  = e.price && parseFloat(e.price) > 0 ? parseFloat(e.price) : null;
+              const pp  = (pN && pPy) ? (pN / pPy).toFixed(2) : null;
+              return (
+                <td key={e.id} className={e.printSel ? '' : 'print-hide'}
+                  style={{padding:'9px 14px',border:'1px solid #e0dcd4',fontWeight:500}}>
+                  {pp ? pp + '억/평' : '—'}
+                </td>
+              );
+            })}
+          </tr>
+          {/* API 필드들 */}
           {COLS.map(col => (
             <tr key={col.l}>
               <td className="plc" style={{background:'#f7f4ef',padding:'9px 14px',color:'#666',fontWeight:500,border:'1px solid #e0dcd4',whiteSpace:'nowrap',verticalAlign:'top'}}>{col.l}</td>
               {entries.map(e => (
-                <td key={e.id} style={{padding:'9px 14px',border:'1px solid #e0dcd4',verticalAlign:'top',lineHeight:1.6}}>
+                <td key={e.id} className={e.printSel ? '' : 'print-hide'}
+                  style={{padding:'9px 14px',border:'1px solid #e0dcd4',verticalAlign:'top',lineHeight:1.6}}>
                   {e.res ? col.f(e.res) : '—'}
                 </td>
               ))}
