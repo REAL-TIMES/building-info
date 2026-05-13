@@ -1,684 +1,125 @@
-/* ════════════════════════════════════════════════════
-   타임즈부동산중개 — 건축물대장 비교 조회
-   @babel/standalone 컴파일 | React 18 UMD 전역 사용
-   주의: import/export 사용 금지 (Babel standalone 제약)
-   ════════════════════════════════════════════════════ */
+const https = require('https');
+const http  = require('http');
 
-const { useState } = React;
-
-// ── 법정동코드 룩업 (c=sigunguCd, d={동명:bjdongCd}) ──
-const R = {
-  "서울특별시": {
-    "강남구":  { c:"11680", d:{"역삼동":"10100","개포동":"10300","청담동":"10400","삼성동":"10500","대치동":"10600","신사동":"10700","논현동":"10800","압구정동":"11000","세곡동":"11100","자곡동":"11200","율현동":"11300","일원동":"11400","수서동":"11500","도곡동":"11800"} },
-    "서초구":  { c:"11650", d:{"방배동":"10100","양재동":"10200","우면동":"10300","원지동":"10400","잠원동":"10600","반포동":"10700","서초동":"10800","내곡동":"10900","염곡동":"11000","신원동":"11100"} },
-    "송파구":  { c:"11710", d:{"가락동":"10700","거여동":"10200","개롱동":"10600","마천동":"10300","문정동":"10800","방이동":"10400","삼전동":"11300","석촌동":"11400","성내동":"11600","신천동":"11200","오금동":"10500","위례동":"11000","잠실동":"11100","장지동":"10900","풍납동":"10100","송파동":"11500"} },
-    "강동구":  { c:"11740", d:{"강일동":"10900","고덕동":"10200","길동":"10400","둔촌동":"10500","명일동":"10100","상일동":"10300","성내동":"10700","암사동":"10600","천호동":"10800","풍산동":"11000"} },
-    "용산구":  { c:"11170", d:{"도원동":"11400","동빙고동":"12300","보광동":"13100","서빙고동":"12400","이촌동":"12000","이태원동":"12100","한남동":"12200","효창동":"11300"} },
-    "마포구":  { c:"11440", d:{"공덕동":"10200","노고산동":"11000","도화동":"10400","동교동":"12100","망원동":"12300","마포동":"10700","상수동":"11500","서교동":"12000","아현동":"10100","연남동":"12400","합정동":"12200"} },
-    "성동구":  { c:"11200", d:{"금호동1가":"10400","마장동":"11100","사근동":"11200","성수동1가":"11500","성수동2가":"11600","옥수동":"10800","왕십리동":"10100","응봉동":"10300","행당동":"10200"} },
-    "광진구":  { c:"11215", d:{"광장동":"10600","구의동":"10500","군자동":"10200","능동":"10400","자양동":"10700","중곡동":"10300","화양동":"10100"} },
-    "영등포구":{ c:"11560", d:{"당산동":"11700","대림동":"13300","도림동":"11800","문래동1가":"11900","신길동":"13200","양평동1가":"12500","양평동2가":"12600","양평동3가":"12700","양평동4가":"12800","양평동5가":"12900","양평동6가":"13000","여의도동":"11000","영등포동":"10100"} },
-    "강서구":  { c:"11500", d:{"가양동":"10400","내발산동":"10600","등촌동":"10200","마곡동":"10500","방화동":"10900","염창동":"10100","화곡동":"10300"} },
-    "동작구":  { c:"11590", d:{"노량진동":"10100","대방동":"10200","동작동":"10300","본동":"10400","사당동":"10500","상도동":"10600","신대방동":"10700","흑석동":"10800"} },
-    "관악구":  { c:"11620", d:{"남현동":"10300","봉천동":"10100","신림동":"10200"} },
-    "종로구":  { c:"11110", d:{"가회동":"14400","계동":"14600","낙원동":"13500","부암동":"18100","사직동":"11500","삼청동":"13800","인사동":"13400","창신동":"17100","청운동":"10100","평창동":"18000","효자동":"10400"} },
-    "중구":    { c:"11140", d:{"다산동":"12500","신당동":"12400","약수동":"12600","장충동1가":"12200","장충동2가":"12300","청구동":"12700","황학동":"13200"} },
-    "성북구":  { c:"11290", d:{"길음동":"11000","돈암동":"11700","보문동1가":"11600","성북동":"10100","월곡동":"11400","장위동":"11200","정릉동":"11100","종암동":"11500","하월곡동":"11300"} },
-    "노원구":  { c:"11350", d:{"공릉동":"10100","상계동":"10400","월계동":"10200","중계동":"10500","하계동":"10300"} },
-    "은평구":  { c:"11380", d:{"갈현동":"10200","구산동":"10300","대조동":"10400","불광동":"10100","수색동":"10900","신사동":"10700","역촌동":"10600","응암동":"10500","증산동":"10800","진관동":"11000"} },
-    "서대문구":{ c:"11410", d:{"남가좌동":"11100","냉천동":"10600","대신동":"11000","대현동":"10900","북가좌동":"11200","북아현동":"10200","신촌동":"10700","연희동":"10500","창천동":"10800","천연동":"10400","홍은동":"10300","홍제동":"10100"} },
-    "강북구":  { c:"11305", d:{"미아동":"10300","번동":"10100","수유동":"10200","우이동":"10400"} },
-    "도봉구":  { c:"11320", d:{"도봉동":"10100","방학동":"10300","쌍문동":"10200","창동":"10400"} },
-    "중랑구":  { c:"11260", d:{"망우동":"10500","면목동":"10100","묵동":"10400","상봉동":"10200","신내동":"10600","중화동":"10300"} },
-    "동대문구":{ c:"11230", d:{"답십리동":"10400","신설동":"10900","용신동":"10100","이문동":"10700","전농동":"10300","제기동":"10200","장안동":"10500","청량리동":"10600","휘경동":"10800"} },
-    "양천구":  { c:"11470", d:{"목동":"10100","신월동":"10300","신정동":"10200"} },
-    "구로구":  { c:"11530", d:{"가리봉동":"10200","개봉동":"10400","고척동":"10300","구로동":"10100","궁동":"10600","신도림동":"10900","오류동":"10500","온수동":"10700","항동":"10800"} },
-    "금천구":  { c:"11545", d:{"가산동":"10200","독산동":"10300","시흥동":"10100"} }
-  },
-  "경기도": {
-    "과천시":        { c:"41290", d:{"갈현동":"10500","관문동":"10900","과천동":"10800","막계동":"10700","문원동":"10400","별양동":"10200","부림동":"10300","주암동":"10600","중앙동":"10100"} },
-    "고양시 덕양구": { c:"41281", d:{"강매동":"10100","고양동":"10200","관산동":"10300","능곡동":"10500","대장동":"10600","원당동":"11300","원흥동":"11400","행신동":"11600","화정동":"11800"} },
-    "고양시 일산동구":{ c:"41285", d:{"마두동":"10400","백석동":"10500","식사동":"10100","장항동":"10700","정발산동":"10300","중산동":"10200","풍동":"10600"} },
-    "고양시 일산서구":{ c:"41287", d:{"가좌동":"10500","구산동":"10800","대화동":"10200","덕이동":"10600","일산동":"10400","주엽동":"10100","탄현동":"10300"} },
-    "광명시":        { c:"41210", d:{"광명동":"10100","소하동":"10200","철산동":"10300","하안동":"10400","일직동":"10500"} },
-    "구리시":        { c:"41310", d:{"갈매동":"10100","교문동":"10200","수택동":"10400","인창동":"10300","토평동":"10500"} },
-    "남양주시":      { c:"41360", d:{"금곡동":"10400","도농동":"10700","별내동":"10100","양정동":"10500","지금동":"10600","평내동":"10300","호평동":"10200"} },
-    "부천시":        { c:"41190", d:{"도당동":"10500","상동":"10900","소사동":"11000","심곡동":"11100","역곡동":"11200","오정동":"10200","원미동":"11300","원종동":"10400","중동":"10800","춘의동":"10600"} },
-    "성남시 분당구": { c:"41135", d:{"대장동":"11200","백현동":"11000","분당동":"10100","삼평동":"10900","서현동":"10500","석운동":"11300","수내동":"10200","야탑동":"10700","운중동":"11100","이매동":"10600","정자동":"10300","판교동":"10800","율동":"10400"} },
-    "성남시 수정구": { c:"41131", d:{"고등동":"11000","단대동":"10500","복정동":"10800","산성동":"10600","성남동":"10400","수진동":"10100","신흥동":"10200","양지동":"10700","창곡동":"10900","태평동":"10300"} },
-    "성남시 중원구": { c:"41133", d:{"금광동":"10300","도촌동":"10700","상대원동":"10500","성남동":"10200","은행동":"10400","중앙동":"10100","하대원동":"10600"} },
-    "수원시 영통구": { c:"41117", d:{"망포동":"10200","매탄동":"10300","영통동":"10100","원천동":"10400","이의동":"10500","하동":"10600"} },
-    "수원시 장안구": { c:"41111", d:{"송죽동":"10300","영화동":"10200","율전동":"10600","이목동":"10500","정자동":"10400","조원동":"10100","천천동":"10800","파장동":"10700"} },
-    "수원시 팔달구": { c:"41115", d:{"교동":"10500","우만동":"10700","인계동":"10600","장안동":"10400"} },
-    "안양시 동안구": { c:"41173", d:{"관양동":"10100","귀인동":"10500","비산동":"10200","평촌동":"10400","호계동":"10300"} },
-    "안양시 만안구": { c:"41171", d:{"박달동":"10200","석수동":"10300","안양동":"10100"} },
-    "용인시 기흥구": { c:"41463", d:{"구갈동":"10200","기흥동":"10100","동백동":"11200","상갈동":"10300","신갈동":"10400","영덕동":"10500","청덕동":"10600"} },
-    "용인시 수지구": { c:"41465", d:{"고기동":"10400","동천동":"10300","상현동":"10500","성복동":"10600","신봉동":"10200","죽전동":"10700","풍덕천동":"10100"} },
-    "하남시":        { c:"41450", d:{"감일동":"10500","덕풍동":"11200","망월동":"11400","미사동":"11500","신장동":"11300","위례동":"12000","풍산동":"11100"} },
-    "화성시":        { c:"41590", d:{"동탄동":"10100","반월동":"10200","병점동":"10300"} },
-    "파주시":        { c:"41480", d:{"교하동":"10900","금촌동":"10400","운정동":"10200","야당동":"10100"} },
-    "김포시":        { c:"41570", d:{"걸포동":"10700","구래동":"10500","마산동":"10600","북변동":"10900","사우동":"10200","운양동":"10400","장기동":"10300","풍무동":"10100"} }
-  }
-};
-
-// ── 유틸리티 ──
-const PY = 3.3058;
-const py  = v => v ? (parseFloat(v) / PY).toFixed(1) : null;
-const m2  = v => (v != null && v !== '' && parseFloat(v) > 0)
-  ? py(v) + '평 (약 ' + parseFloat(v).toFixed(1) + '㎡)' : '—';
-const pct = v => (v != null && v !== '' && parseFloat(v) > 0) ? parseFloat(v).toFixed(1) + '%' : '—';
-const dt  = v => {
-  if (!v) return '—';
-  const s = String(v).replace(/-/g, '');
-  return s.length >= 8 ? s.slice(0,4) + '.' + s.slice(4,6) + '.' + s.slice(6,8) : String(v);
-};
-const p4  = n => String(parseInt(n) || 0).padStart(4, '0');
-const parseBJ = str => {
-  const m = str.trim().replace(/\s/g, '').match(/^(\d+)(?:-(\d+))?$/);
-  return m ? { bun: p4(m[1]), ji: p4(m[2] || 0) } : null;
-};
-
-// ── 비교표 항목 (높이 제거, 용도지역 추가) ──
-const COLS = [
-  { l:'주소',            f: i => i.platPlc || '—' },
-  { l:'주용도',          f: i => [i.mainPurpsCdNm, i.etcPurps].filter(Boolean).join(' / ') || '—' },
-  { l:'용도지역',        f: i => i.jiyukCdNm || '—' },
-  { l:'주구조',          f: i => i.strctCdNm || i.mainStrctCdNm || '—' },
-  { l:'대지면적',        f: i => m2(i.platArea) },
-  { l:'연면적',          f: i => m2(i.totArea) },
-  { l:'건축면적',        f: i => m2(i.archArea) },
-  { l:'용적률산정연면적',f: i => m2(i.vlRatEstmTotArea) },
-  { l:'건폐율',          f: i => pct(i.bcRat) },
-  { l:'용적률',          f: i => pct(i.vlRat) },
-  { l:'층수',            f: i => '지상 ' + (i.grndFlrCnt||0) + '층 / 지하 ' + (i.ugrndFlrCnt||0) + '층' },
-  { l:'세대수',          f: i => i.hhldCnt ? parseInt(i.hhldCnt).toLocaleString() + '세대' : '—' },
-  { l:'승강기',          f: i => {
-    const r = parseInt(i.rideUseElvtCnt) || 0, e = parseInt(i.emgenUseElvtCnt) || 0;
-    return (r || e) ? '승용 ' + r + '대 / 비상 ' + e + '대' : '—';
-  }},
-  { l:'사용승인일',      f: i => dt(i.useAprDay) },
-];
-
-// ── 엔트리 팩토리 ──
-let _id = 2;
-const mk = id => ({
-  id, sido:'서울특별시', sg:'강남구', dong:'', bj:'', alias:'',
-  man:false, mSg:'', mD:'', res:null, ld:false, err:null,
-  price:'',      // 매매가 (억원)
-  printSel:true  // 인쇄 선택
-});
-
-// ════════════════════════════════════════════════════
-// 메인 컴포넌트
-// ════════════════════════════════════════════════════
-function App() {
-  const [ents, setE]         = useState([mk(1)]);
-  const [vw, setV]           = useState('cards');
-  const [reportTitle, setRT] = useState('');
-  const [reportDate,  setRD] = useState(new Date().toISOString().slice(0,10));
-  const [printMode,   setPM] = useState('landscape');
-  const [showBiz,     setSB] = useState(false);
-  const [bizName,     setBN] = useState('타임즈부동산중개');
-  const [bizAddr,     setBA] = useState('서울특별시 서초구 반포동 반포프라자');
-  const [agentName,   setAN] = useState('');
-  const [agentPhone,  setAP] = useState('');
-  const [logoSrc,     setLG] = useState('');
-
-  const up          = (id, d) => setE(p => p.map(e => e.id === id ? {...e, ...d} : e));
-  const add         = ()      => setE(p => [...p, mk(_id++)]);
-  const rm          = id      => setE(p => p.filter(e => e.id !== id));
-  const togglePrint = id      => setE(p => p.map(e => e.id === id ? {...e, printSel:!e.printSel} : e));
-
-  const go = async ent => {
-    up(ent.id, { ld:true, err:null });
-    try {
-      let sC, bC;
-      if (ent.man) {
-        if (!ent.mSg || !ent.mD) throw new Error('시군구코드·법정동코드를 입력하세요');
-        sC = ent.mSg.trim(); bC = ent.mD.trim();
-      } else {
-        const g = R[ent.sido] && R[ent.sido][ent.sg];
-        if (!g) throw new Error('시군구를 선택하세요');
-        sC = g.c; bC = g.d[ent.dong];
-        if (!bC) throw new Error(ent.dong ? "'" + ent.dong + "' 코드 미등록" : '동을 선택하세요');
-      }
-      const p = parseBJ(ent.bj);
-      if (!p) throw new Error('번지 형식 오류 (예: 1-1, 100)');
-
-      const res = await fetch(
-        '/api/building?sigunguCd=' + sC +
-        '&bjdongCd=' + bC +
-        '&bun=' + p.bun +
-        '&ji='  + p.ji +
-        '&_t='  + Date.now()
-      );
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const d = await res.json();
-
-      if (d.response && d.response.header && d.response.header.resultCode !== '00')
-        throw new Error(d.response.header.resultMsg || '조회 실패');
-
-      const raw = d.response && d.response.body && d.response.body.items && d.response.body.items.item;
-      const itemArr = !raw ? [] : (Array.isArray(raw) ? raw : [raw]);
-      if (itemArr.length === 0) throw new Error('결과 없음 — 네이버 지도에서 지번을 확인하세요');
-
-      const main = itemArr.find(i => i.mainAtchGbCd === '0') || itemArr[0];
-      up(ent.id, { ld:false, res:main });
-    } catch(e) {
-      up(ent.id, { ld:false, err: e.message });
+function fetchUrl(url) {
+  return new Promise((resolve, reject) => {
+    const lib = url.startsWith('https') ? https : http;
+    function doReq(u, redirects) {
+      if (redirects > 3) return reject(new Error('Too many redirects'));
+      const req = lib.get(u, { headers: { Accept: 'application/json' } }, res => {
+        if ((res.statusCode === 301 || res.statusCode === 302) && res.headers.location) {
+          res.resume(); return doReq(res.headers.location, redirects + 1);
+        }
+        let body = '';
+        res.on('data', c => { body += c; });
+        res.on('end', () => resolve(body));
+        res.on('error', reject);
+      });
+      req.on('error', reject);
+      req.setTimeout(9000, () => { req.destroy(); reject(new Error('timeout')); });
     }
-  };
-
-  const sgs   = s     => Object.keys(R[s] || {}).sort();
-  const ds    = (s,g) => Object.keys((R[s] && R[s][g] && R[s][g].d) || {}).sort();
-  const sidos = Object.keys(R);
-  const rE    = ents.filter(e => e.res);
-  const hasR  = rE.length > 0;
-
-  return (
-    <div style={{fontFamily:"'Noto Sans KR',sans-serif",background:'#f7f4ef',minHeight:'100vh',color:'#1a1a2e'}}>
-
-      {/* 헤더 — 화면 전용 */}
-      <header className="no-print" style={{background:'#0d1b2a',padding:'18px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div>
-          <div style={{fontSize:'10px',letterSpacing:'0.15em',color:'#c9a84c',marginBottom:'3px'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'22px',color:'#f7f4ef',fontWeight:400}}>건축물대장 비교 조회</div>
-        </div>
-        <div style={{fontSize:'11px',color:'#c9a84c',border:'1px solid #c9a84c',padding:'6px 12px'}}>건축물대장정보 서비스</div>
-      </header>
-
-      {/* 입력 패널 — 화면 전용 */}
-      <section className="no-print" style={{background:'#ede9e1',padding:'18px 28px 20px',borderBottom:'1px solid #d8d4cc'}}>
-        <div style={{maxWidth:'1280px',margin:'0 auto'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
-            <span style={{fontSize:'11px',color:'#888'}}>조회 건물 목록 · {ents.length}건</span>
-            <div style={{display:'flex',gap:'8px'}}>
-              <button className="blt" style={{fontSize:'11px',padding:'6px 14px'}} onClick={add}>+ 건물 추가</button>
-              <button className="bdk" onClick={() => ents.forEach(e => go(e))}>
-                {ents.some(e => e.ld) ? '조회 중…' : '전체 조회 ▶'}
-              </button>
-            </div>
-          </div>
-          {ents.map((e, i) => <ERow key={e.id} e={e} i={i} n={ents.length} sidos={sidos} sgs={sgs} ds={ds} up={up} rm={rm} go={go} />)}
-          <p style={{fontSize:'11px',color:'#aaa',marginTop:'8px',lineHeight:1.7}}>
-            ※ 동 코드가 없으면 "코드 직접입력"으로 시군구코드(5자리)·법정동코드(5자리)를 직접 입력하세요.
-          </p>
-        </div>
-      </section>
-
-      {/* 뷰 전환 + 인쇄 — 화면 전용 */}
-      {hasR && (
-        <div className="no-print" style={{padding:'12px 28px',display:'flex',gap:'8px',justifyContent:'space-between',maxWidth:'1280px',margin:'0 auto'}}>
-          <div style={{display:'flex',gap:'6px'}}>
-            <button className={vw==='cards' ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('cards')}>▣ 카드</button>
-            <button className={vw==='table' ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('table')}>≡ 비교표</button>
-          </div>
-          <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-            {vw === 'cards' && <>
-              <span style={{fontSize:'11px',color:'#aaa'}}>인쇄 방향:</span>
-              <button className={printMode==='landscape' ? 'bdk' : 'blt'} style={{fontSize:'11px',padding:'5px 10px'}} onClick={() => setPM('landscape')}>가로 3칸</button>
-              <button className={printMode==='portrait'  ? 'bdk' : 'blt'} style={{fontSize:'11px',padding:'5px 10px'}} onClick={() => setPM('portrait')}>세로 4칸</button>
-            </>}
-            <input type="text" placeholder="보고서 제목" value={reportTitle}
-              onChange={v => setRT(v.target.value)}
-              style={{width:'180px',fontSize:'12px'}} />
-            <input type="date" value={reportDate}
-              onChange={v => setRD(v.target.value)}
-              style={{fontSize:'12px',width:'140px'}} />
-            <button className="blt" style={{fontSize:'12px'}} onClick={() => window.print()}>🖨 인쇄 / PDF</button>
-          </div>
-        </div>
-      )}
-
-      {/* 인쇄 방향 동적 스타일 — 비교표는 항상 가로 고정 */}
-      <style dangerouslySetInnerHTML={{__html:
-        (vw === 'table' || printMode === 'landscape')
-          ? '@media print { @page { size: A4 landscape !important; margin: 10mm 12mm 14mm; } .cg { grid-template-columns: 1fr 1fr 1fr !important; } }'
-          : '@media print { @page { size: A4 portrait !important; margin: 12mm 14mm 16mm; } .cg { grid-template-columns: 1fr 1fr !important; } }'
-      }} />
-
-      {/* 인쇄 헤더 — 카드 뷰에서만 표시 */}
-      {vw !== 'table' && (
-      <div className="ph" style={{display:'none',padding:'24px 28px 0'}}>
-        <div style={{borderBottom:'2px solid #0d1b2a',paddingBottom:'14px',marginBottom:'20px',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
-          <div>
-            <div style={{fontSize:'9px',letterSpacing:'0.15em',color:'#c9a84c'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'26px',fontWeight:500}}>{reportTitle || '건축물대장 비교 보고서'}</div>
-          </div>
-          <div style={{textAlign:'right',fontSize:'11px',color:'#888'}}>{reportDate} · 총 {rE.filter(e=>e.printSel).length}건</div>
-        </div>
-      </div>
-      )}
-
-      {/* 결과 영역 */}
-      <main style={{padding:'10px 28px 48px',maxWidth:'1280px',margin:'0 auto'}}>
-        {!hasR && (
-          <div style={{textAlign:'center',padding:'80px 0',color:'#ccc'}}>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'28px',marginBottom:'10px'}}>건물을 조회하면 결과가 표시됩니다</div>
-            <div style={{fontSize:'12px',color:'#bbb'}}>번지를 입력하고 조회 버튼을 누르세요</div>
-          </div>
-        )}
-        {hasR && vw==='cards' && (
-          <>
-            <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px'}}>
-              {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} />)}
-            </div>
-            {/* 카드 인쇄 푸터 */}
-            <div className="print-only">
-              <PrintFooter bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />
-            </div>
-          </>
-        )}
-        {hasR && vw==='table' && <CmpT entries={rE} togglePrint={togglePrint} printMode={printMode} reportTitle={reportTitle} reportDate={reportDate} totalSel={rE.filter(e=>e.printSel).length} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />}
-      </main>
-
-      {/* ── 출력 정보 설정 패널 (화면 전용) ── */}
-      <div className="no-print" style={{position:'fixed',bottom:0,left:0,right:0,background:'#ede9e1',borderTop:'1px solid #d8d4cc',zIndex:100}}>
-        <div style={{maxWidth:'1280px',margin:'0 auto',padding:'0 28px'}}>
-          <button onClick={() => setSB(p => !p)}
-            style={{background:'none',border:'none',cursor:'pointer',padding:'8px 0',fontSize:'11px',color:'#888',width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:'6px'}}>
-            <span style={{fontSize:'14px'}}>{showBiz ? '▲' : '▲'}</span>
-            출력 정보 설정 (로고·상호·담당자·연락처)
-            <span style={{marginLeft:'auto',fontSize:'10px',color:'#c9a84c'}}>
-              {showBiz ? '접기 ▼' : '펼치기 ▲'}
-            </span>
-          </button>
-          {showBiz && (
-            <div style={{paddingBottom:'14px',display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'flex-end'}}>
-              {/* 로고 */}
-              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
-                <span style={{fontSize:'10px',color:'#888'}}>로고 이미지</span>
-                <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-                  <label style={{background:'#0d1b2a',color:'#c9a84c',padding:'5px 10px',fontSize:'11px',cursor:'pointer',border:'none'}}>
-                    파일 선택
-                    <input type="file" accept="image/*" style={{display:'none'}}
-                      onChange={ev => {
-                        const file = ev.target.files[0];
-                        if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = e => setLG(e.target.result);
-                        reader.readAsDataURL(file);
-                      }} />
-                  </label>
-                  {logoSrc && <img src={logoSrc} style={{height:'32px',objectFit:'contain',border:'1px solid #e0dcd4'}} />}
-                  {logoSrc && <button onClick={() => setLG('')} style={{background:'none',border:'none',color:'#ccc',cursor:'pointer',fontSize:'16px'}}>×</button>}
-                </div>
-              </div>
-              {/* 상호 */}
-              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
-                <span style={{fontSize:'10px',color:'#888'}}>상호</span>
-                <input type="text" value={bizName} onChange={v => setBN(v.target.value)} style={{width:'160px',fontSize:'12px'}} />
-              </div>
-              {/* 주소 */}
-              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
-                <span style={{fontSize:'10px',color:'#888'}}>주소</span>
-                <input type="text" value={bizAddr} onChange={v => setBA(v.target.value)} style={{width:'260px',fontSize:'12px'}} />
-              </div>
-              {/* 담당자 */}
-              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
-                <span style={{fontSize:'10px',color:'#888'}}>담당자</span>
-                <input type="text" placeholder="이름" value={agentName} onChange={v => setAN(v.target.value)} style={{width:'100px',fontSize:'12px'}} />
-              </div>
-              {/* 연락처 */}
-              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
-                <span style={{fontSize:'10px',color:'#888'}}>연락처</span>
-                <input type="text" placeholder="010-0000-0000" value={agentPhone} onChange={v => setAP(v.target.value)} style={{width:'130px',fontSize:'12px'}} />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      {/* 고정 패널 높이만큼 여백 */}
-      <div className="no-print" style={{height: showBiz ? '120px' : '40px'}} />
-    </div>
-  );
+    doReq(url, 0);
+  });
 }
 
-// ── 인쇄 푸터 ──
-function PrintFooter({ bizName, bizAddr, agentName, agentPhone, logoSrc }) {
-  if (!bizName && !bizAddr && !agentName && !agentPhone && !logoSrc) return null;
-  return (
-    <div style={{marginTop:'10pt',paddingTop:'6pt',borderTop:'0.8pt solid #c9a84c',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'8pt',color:'#555',lineHeight:1.4}}>
-      <div style={{display:'flex',alignItems:'center',gap:'8pt'}}>
-        {logoSrc && <img src={logoSrc} style={{height:'22pt',objectFit:'contain',marginRight:'4pt'}} />}
-        <div>
-          {bizName && <div style={{fontWeight:700,fontSize:'9pt',color:'#0d1b2a',letterSpacing:'0.03em'}}>{bizName}</div>}
-          {bizAddr && <div style={{color:'#666'}}>{bizAddr}</div>}
-        </div>
-      </div>
-      {(agentName || agentPhone) && (
-        <div style={{textAlign:'right'}}>
-          {agentName && <div style={{fontWeight:600,color:'#0d1b2a'}}>{agentName}</div>}
-          {agentPhone && <div style={{color:'#666'}}>{agentPhone}</div>}
-        </div>
-      )}
-    </div>
-  );
+function parseItems(raw) {
+  if (!raw) return [];
+  const items = Array.isArray(raw) ? raw : [raw];
+  return items;
 }
 
-// ── 입력 행 ──
-function ERow({ e, i, n, sidos, sgs, ds, up, rm, go }) {
-  return (
-    <div style={{background:'white',border:'1px solid #e0dcd4',padding:'12px 14px',marginBottom:'8px'}}>
-      <div style={{display:'flex',gap:'8px',alignItems:'flex-start',flexWrap:'wrap'}}>
-        <div style={{width:'26px',height:'26px',background:'#0d1b2a',color:'#c9a84c',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:700,flexShrink:0,marginTop:'2px'}}>
-          {i+1}
-        </div>
+module.exports = async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  if (req.method === 'OPTIONS') { res.status(204).end(); return; }
 
-        {!e.man ? (
-          <>
-            <select value={e.sido} style={{width:'130px',flexShrink:0}}
-              onChange={v => { const s = v.target.value; up(e.id, {sido:s, sg:sgs(s)[0]||'', dong:''}); }}>
-              {sidos.map(s => <option key={s}>{s}</option>)}
-            </select>
-            <select value={e.sg} style={{width:'130px',flexShrink:0}}
-              onChange={v => up(e.id, {sg:v.target.value, dong:''})}>
-              <option value="">구/군 선택</option>
-              {sgs(e.sido).map(s => <option key={s}>{s}</option>)}
-            </select>
-            <select value={e.dong} style={{width:'110px',flexShrink:0}}
-              onChange={v => up(e.id, {dong:v.target.value})}>
-              <option value="">동 선택</option>
-              {ds(e.sido, e.sg).map(d => <option key={d}>{d}</option>)}
-            </select>
-          </>
-        ) : (
-          <>
-            <input type="text" placeholder="시군구코드 5자리" value={e.mSg}
-              onChange={v => up(e.id, {mSg:v.target.value})} style={{width:'140px',flexShrink:0}} />
-            <input type="text" placeholder="법정동코드 5자리" value={e.mD}
-              onChange={v => up(e.id, {mD:v.target.value})} style={{width:'140px',flexShrink:0}} />
-          </>
-        )}
+  const { sigunguCd, bjdongCd, bun, ji } = req.query;
+  if (!sigunguCd || !bjdongCd || !bun || !ji)
+    return res.status(400).json({ error: '파라미터 누락' });
 
-        <input type="text" placeholder="번지 (예: 1-1)" value={e.bj}
-          onChange={v => up(e.id, {bj:v.target.value})}
-          onKeyDown={k => k.key === 'Enter' && go(e)}
-          style={{width:'100px',flexShrink:0}} />
+  const KEY = process.env.BUILDING_API_KEY;
+  if (!KEY) return res.status(500).json({ error: 'BUILDING_API_KEY 미설정' });
 
-        <input type="text" placeholder="별칭 (선택)" value={e.alias}
-          onChange={v => up(e.id, {alias:v.target.value})} style={{width:'100px',flexShrink:0}} />
+  const BASE = 'https://apis.data.go.kr/1613000/BldRgstHubService/';
+  const QS   = '?serviceKey=' + KEY +
+    '&sigunguCd=' + encodeURIComponent(sigunguCd) +
+    '&bjdongCd='  + encodeURIComponent(bjdongCd) +
+    '&bun='       + encodeURIComponent(bun) +
+    '&ji='        + encodeURIComponent(ji) +
+    '&_type=json&numOfRows=20&pageNo=1';
 
-        <input type="text" inputMode="decimal" placeholder="매매가(억)" value={e.price}
-          onChange={v => up(e.id, {price:v.target.value})}
-          onKeyDown={k => (k.key === 'Enter' || k.keyCode === 13) && go(e)}
-          style={{width:'88px',flexShrink:0}} />
+  try {
+    // ① 표제부 ② 지역지구 ③ 기본개요(대지면적 보완용) — 3개 병렬 호출
+    const [titleRes, jijiguRes, basisRes] = await Promise.allSettled([
+      fetchUrl(BASE + 'getBrTitleInfo'    + QS),
+      fetchUrl(BASE + 'getBrJijiguInfo'   + QS),
+      fetchUrl(BASE + 'getBrBasisOulnInfo'+ QS),
+    ]);
 
-        <label style={{display:'flex',alignItems:'center',gap:'4px',fontSize:'11px',color:'#999',cursor:'pointer',whiteSpace:'nowrap',paddingTop:'8px',userSelect:'none',flexShrink:0}}>
-          <input type="checkbox" checked={e.man} onChange={v => up(e.id, {man:v.target.checked})} />
-          코드 직접입력
-        </label>
+    // 표제부 파싱
+    if (titleRes.status !== 'fulfilled' || !titleRes.value)
+      return res.status(500).json({ error: '건축물대장 조회 실패' });
 
-        <button className="bdk" style={{fontSize:'12px',padding:'7px 14px',flexShrink:0,minWidth:'72px'}}
-          onClick={() => go(e)} disabled={e.ld}>
-          {e.ld ? '조회 중…' : '조회'}
-        </button>
+    let titleData;
+    try { titleData = JSON.parse(titleRes.value); }
+    catch (e) { return res.status(500).json({ error: 'JSON 파싱 오류', preview: (titleRes.value||'').slice(0,300) }); }
 
-        {n > 1 && (
-          <button onClick={() => rm(e.id)}
-            style={{background:'transparent',border:'none',color:'#ccc',fontSize:'18px',cursor:'pointer',lineHeight:1,padding:'4px 6px',marginLeft:'auto',flexShrink:0}}>×</button>
-        )}
-      </div>
-      {e.err && <div style={{marginTop:'8px',marginLeft:'34px',fontSize:'12px',color:'#c0392b',background:'#fff5f4',padding:'6px 10px'}}>⚠ {e.err}</div>}
-      {e.res && <div style={{marginTop:'8px',marginLeft:'34px',fontSize:'12px',color:'#2e7d32',background:'#f1f8e9',padding:'6px 10px'}}>
-        ✓ {e.res.platPlc} — {[e.res.mainPurpsCdNm, e.res.etcPurps].filter(Boolean).join(' / ')}
-        {e.res.jiyukCdNm && <span style={{marginLeft:'8px',color:'#666'}}>│ {e.res.jiyukCdNm}</span>}
-      </div>}
-    </div>
-  );
-}
+    const body = titleData?.response?.body;
+    if (!body) return res.status(500).json({ error: '응답 구조 오류' });
 
-// ── 결과 카드 ──
-function RCard({ e, i, onTogglePrint, onDelete }) {
-  const it = e.res;
-  const title = e.alias || it.bldNm || it.platPlc;
+    const titleItems = parseItems(body?.items?.item);
 
-  // 매매가 & 대지 평단가
-  const priceNum = e.price && parseFloat(e.price) > 0 ? parseFloat(e.price) : null;
-  const platPy   = it.platArea && parseFloat(it.platArea) > 0 ? parseFloat(it.platArea) / PY : null;
-  const ppPy     = (priceNum && platPy) ? Math.round(priceNum * 10000 / platPy).toLocaleString() : null;
+    // ── 용도지역 추출 ──
+    let jiyukCdNm = null;
+    if (jijiguRes.status === 'fulfilled' && jijiguRes.value) {
+      try {
+        const jd = JSON.parse(jijiguRes.value);
+        const raw = jd?.response?.body?.items?.item;
+        if (raw) {
+          const yg = parseItems(raw).find(it => it.jiyukCdNm?.trim());
+          if (yg) jiyukCdNm = yg.jiyukCdNm.trim();
+        }
+      } catch (e) { /* 무시 */ }
+    }
 
-  // 상단 3칸 (건폐율, 용적률, 세대수)
-  const s3 = [
-    { l:'건폐율', v: pct(it.bcRat) },
-    { l:'용적률', v: pct(it.vlRat) },
-    { l:'세대수', v: it.hhldCnt ? parseInt(it.hhldCnt).toLocaleString() + '세대' : '—' },
-  ];
+    // ── 기본개요에서 보완 필드 추출 ──
+    // getBrBasisOulnInfo는 getBrTitleInfo보다 오래된 건물도 platArea, bcRat, vlRat 포함
+    let basisSupp = {};  // 보완 데이터
+    if (basisRes.status === 'fulfilled' && basisRes.value) {
+      try {
+        const bd = JSON.parse(basisRes.value);
+        const raw = bd?.response?.body?.items?.item;
+        if (raw) {
+          const bItems = parseItems(raw);
+          const main = bItems.find(i => i.mainAtchGbCd === '0') || bItems[0];
+          if (main) {
+            // 없는 필드만 보완
+            const FILL = ['platArea','bcRat','vlRat','hhldCnt','grndFlrCnt','ugrndFlrCnt','useAprDay'];
+            FILL.forEach(f => {
+              if (main[f] && parseFloat(main[f]) > 0) basisSupp[f] = main[f];
+            });
+          }
+        }
+      } catch (e) { /* 무시 */ }
+    }
 
-  // 하단 rows: 연면적, 건축면적, 층수, 승강기, 사용승인 — 항상 표시 (없으면 "—")
-  const elvt = (parseInt(it.rideUseElvtCnt) || parseInt(it.emgenUseElvtCnt))
-    ? '승용 ' + (parseInt(it.rideUseElvtCnt)||0) + '대 / 비상 ' + (parseInt(it.emgenUseElvtCnt)||0) + '대'
-    : '—';
-  const rows = [
-    { l:'연면적',   v: m2(it.totArea) },
-    { l:'건축면적', v: m2(it.archArea) },
-    { l:'층수',     v: '지상 ' + (it.grndFlrCnt||0) + '층 / 지하 ' + (it.ugrndFlrCnt||0) + '층' },
-    { l:'승강기',   v: elvt },
-    { l:'사용승인', v: dt(it.useAprDay) },
-  ];
+    // ── 표제부 아이템에 보완 데이터 + 용도지역 주입 ──
+    if (titleItems.length > 0) {
+      titleItems.forEach(it => {
+        // 기본개요에서 보완 (표제부에 값이 없을 때만)
+        Object.entries(basisSupp).forEach(([k, v]) => {
+          if (!it[k] || parseFloat(it[k]) <= 0) it[k] = v;
+        });
+        // 용도지역
+        if (jiyukCdNm) it.jiyukCdNm = jiyukCdNm;
+      });
+      body.items.item = titleItems.length === 1 ? titleItems[0] : titleItems;
+    }
 
-  return (
-    <div className={'pci' + (e.printSel ? '' : ' print-hide')}
-         style={{background:'white',border:'1px solid #e0dcd4',padding:'24px',position:'relative'}}>
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    return res.status(200).json(titleData);
 
-      {/* 인쇄 선택 체크박스 — 화면 전용 */}
-      <label className="screen-only" style={{position:'absolute',top:'7px',left:'7px',display:'flex',alignItems:'center',gap:'3px',fontSize:'10px',color:'#aaa',cursor:'pointer',zIndex:1}}>
-        <input type="checkbox" checked={e.printSel} onChange={() => onTogglePrint(e.id)} />
-        출력
-      </label>
-
-      {/* 번호 + 삭제 버튼 */}
-      <div style={{position:'absolute',top:0,right:0,display:'flex',alignItems:'center'}}>
-        <button className="screen-only" onClick={onDelete}
-          title="삭제"
-          style={{background:'transparent',border:'none',color:'#ccc',fontSize:'16px',cursor:'pointer',padding:'6px 8px',lineHeight:1,transition:'color 0.15s'}}
-          onMouseEnter={ev => ev.target.style.color='#c0392b'}
-          onMouseLeave={ev => ev.target.style.color='#ccc'}>×</button>
-        <div style={{background:'#0d1b2a',color:'#c9a84c',width:'32px',height:'32px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',fontWeight:700}}>{i+1}</div>
-      </div>
-
-      {/* 제목 영역 */}
-      <div style={{paddingRight:'40px',paddingLeft:'22px',marginBottom:'8px'}}>
-        <div style={{fontSize:'10px',letterSpacing:'0.1em',color:'#c9a84c',marginBottom:'2px'}}>
-          {[it.mainPurpsCdNm, it.etcPurps].filter(Boolean).join(' · ')}
-        </div>
-        {it.jiyukCdNm && (
-          <div style={{fontSize:'10px',color:'#888',marginBottom:'4px'}}>{it.jiyukCdNm}</div>
-        )}
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'20px',fontWeight:600,lineHeight:1.2,marginBottom:'4px',color:'#0d1b2a'}}>{title}</div>
-        <div style={{fontSize:'11px',color:'#999'}}>{it.platPlc}</div>
-        {it.newPlatPlc && <div style={{fontSize:'10px',color:'#bbb',marginTop:'2px'}}>{it.newPlatPlc}</div>}
-      </div>
-
-      {/* 매매가 & 평단가 — 주소 바로 아래 */}
-      {priceNum && (
-        <div style={{marginBottom:'4px',background:'#fff9ec',padding:'9px 12px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #e8a020'}}>
-          <span style={{fontSize:'11px',color:'#888'}}>매매가</span>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:600,color:'#0d1b2a'}}>
-            {priceNum}억
-            {ppPy && <span style={{fontSize:'12px',fontWeight:400,color:'#888',marginLeft:'8px'}}>평당 {ppPy}만원</span>}
-          </span>
-        </div>
-      )}
-
-      {/* 상단 3칸 */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'1px',background:'#e0dcd4',marginBottom:'12px'}}>
-        {s3.map(s => (
-          <div key={s.l} style={{background:'#faf9f5',padding:'10px 6px',textAlign:'center'}}>
-            <div style={{fontSize:'10px',color:'#aaa',marginBottom:'3px'}}>{s.l}</div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'18px',fontWeight:600,color:'#0d1b2a'}}>{s.v}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* 대지면적 강조 박스 */}
-      <div style={{background:'#f5f2eb',padding:'9px 12px',marginBottom:'4px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #c9a84c'}}>
-        <span style={{fontSize:'11px',color:'#888'}}>대지면적</span>
-        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:600,color:'#0d1b2a'}}>
-          {it.platArea && parseFloat(it.platArea) > 0
-            ? <>{py(it.platArea)}평 <span style={{fontSize:'13px',fontWeight:400,color:'#888'}}>({parseFloat(it.platArea).toFixed(1)}㎡)</span></>
-            : '—'}
-        </span>
-      </div>
-
-      {/* 하단 rows */}
-      <div>
-        {rows.map(r => (
-          <div key={r.l} style={{display:'flex',gap:'12px',fontSize:'12px',padding:'5px 0',borderBottom:'1px solid #f0ece4'}}>
-            <div style={{width:'58px',color:'#999',flexShrink:0}}>{r.l}</div>
-            <div style={{color:'#1a1a2e'}}>{r.v}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── 비교 테이블 ──
-function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalSel, bizName, bizAddr, agentName, agentPhone, logoSrc }) {
-  const printEntries = entries.filter(e => e.printSel);
-  const splitSize    = 5;
-  const chunks       = [];
-  for (let i = 0; i < printEntries.length; i += splitSize) {
-    chunks.push({ items: printEntries.slice(i, i + splitSize), startIdx: i });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
   }
-
-  // ── 화면용 스타일 ──
-  const sThBase  = { background:'#0d1b2a',color:'#f7f4ef',padding:'10px 12px',border:'1px solid #0d1b2a',fontWeight:500,fontSize:'12px',verticalAlign:'middle' };
-  const sPlcBase = { background:'#f0ede6',padding:'8px 10px',color:'#555',fontWeight:600,border:'1px solid #ddd8d0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'11px',textAlign:'center' };
-  const sGolBase = { background:'#fff3dc',padding:'8px 10px',color:'#b86c00',fontWeight:700,border:'1px solid #ddd8d0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'11px',textAlign:'center' };
-  const sTd = (stripe) => ({
-    padding:'8px 10px', border:'1px solid #ddd8d0', verticalAlign:'middle',
-    fontSize:'12px', lineHeight:1.5, textAlign:'center',
-    background: stripe ? '#faf9f6' : 'white',
-    whiteSpace:'normal', wordBreak:'keep-all',
-  });
-
-  // ── 인쇄용 스타일 (더 컴팩트) ──
-  const pThBase  = { background:'#0d1b2a',color:'#f7f4ef',padding:'5pt 6pt',border:'1px solid #0d1b2a',fontWeight:600,fontSize:'8.5pt',verticalAlign:'middle' };
-  const pPlcBase = { background:'#ede9e1',padding:'4pt 6pt',color:'#444',fontWeight:700,border:'1px solid #ccc8c0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'8pt',textAlign:'center' };
-  const pGolBase = { background:'#fff0cc',padding:'4pt 6pt',color:'#a05800',fontWeight:700,border:'1px solid #ccc8c0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'8pt',textAlign:'center' };
-  const pTd = (stripe) => ({
-    padding:'4pt 6pt', border:'1px solid #ccc8c0', verticalAlign:'middle',
-    fontSize:'8.5pt', lineHeight:1.3, textAlign:'center',
-    background: stripe ? '#faf8f4' : 'white',
-    whiteSpace:'normal', wordBreak:'keep-all',
-    overflow:'hidden',
-  });
-
-  const buildRows = (cols, isP) => {
-    const pl = isP ? pPlcBase : sPlcBase;
-    const gl = isP ? pGolBase : sGolBase;
-    const tdFn = isP ? pTd : sTd;
-    let ri = 0;
-    const s = () => ri++ % 2 === 0;
-    const s0=s(), s1=s(), s2=s();
-    return (
-      <tbody>
-        <tr>
-          <td style={{...pl, background: s0 ? pl.background : '#e0dcd4'}}>주소</td>
-          {cols.map(e => <td key={e.id} style={tdFn(s0)}>{e.res ? (e.res.platPlc||'—') : '—'}</td>)}
-        </tr>
-        <tr>
-          <td style={{...gl, background: s1 ? gl.background : '#f5dfa0'}}>매매가</td>
-          {cols.map(e => <td key={e.id} style={{...tdFn(s1),fontWeight:600,color:'#1a1a2e'}}>
-            {e.price && parseFloat(e.price)>0 ? parseFloat(e.price)+'억원' : '—'}
-          </td>)}
-        </tr>
-        <tr>
-          <td style={{...gl, background: s2 ? gl.background : '#f5dfa0'}}>평단가</td>
-          {cols.map(e => {
-            const pPy = e.res?.platArea && parseFloat(e.res.platArea)>0 ? parseFloat(e.res.platArea)/PY : null;
-            const pN  = e.price && parseFloat(e.price)>0 ? parseFloat(e.price) : null;
-            const pp  = (pN && pPy) ? Math.round(pN*10000/pPy).toLocaleString() : null;
-            return <td key={e.id} style={{...tdFn(s2),fontWeight:600,color:'#1a1a2e'}}>{pp ? pp+'만원/평' : '—'}</td>;
-          })}
-        </tr>
-        {COLS.slice(1).map(col => {
-          const sv = s();
-          return (
-            <tr key={col.l}>
-              <td style={{...pl, background: sv ? pl.background : '#e0dcd4'}}>{col.l}</td>
-              {cols.map(e => <td key={e.id} style={tdFn(sv)}>{e.res ? col.f(e.res) : '—'}</td>)}
-            </tr>
-          );
-        })}
-      </tbody>
-    );
-  };
-
-  const buildHead = (cols, showCheck, startIdx, isP) => {
-    const th = isP ? pThBase : sThBase;
-    const pl = isP ? pPlcBase : sPlcBase;
-    return (
-      <thead>
-        <tr>
-          <th style={{...pl, minWidth: isP ? '0' : '80px', background:'#0d1b2a', color:'#c9a84c'}}>항목</th>
-          {cols.map((e, i) => (
-            <th key={e.id} className="ptk" style={{...th, textAlign:'left'}}>
-              <div style={{display:'flex',alignItems:'flex-start',gap:'5px'}}>
-                {showCheck && (
-                  <label className="screen-only" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'3px',fontSize:'10px',color:'#c9a84c',flexShrink:0,paddingTop:'2px'}}>
-                    <input type="checkbox" checked={e.printSel} onChange={() => togglePrint(e.id)} />출력
-                  </label>
-                )}
-                <div>
-                  <div style={{display:'flex',alignItems:'center',gap:'4px',marginBottom:'2px'}}>
-                    <span style={{background:'#c9a84c',color:'white',minWidth:'16px',height:'16px',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700,flexShrink:0}}>{startIdx+i+1}</span>
-                    <span style={{fontWeight:600,fontSize: isP ? '8.5pt' : '12px'}}>{e.alias||(e.res&&e.res.bldNm)||('건물'+(startIdx+i+1))}</span>
-                  </div>
-                  {e.res?.platPlc && <div style={{fontSize: isP ? '7.5pt' : '10px',color:'#9ab',lineHeight:1.3}}>{e.res.platPlc}</div>}
-                </div>
-              </div>
-            </th>
-          ))}
-        </tr>
-      </thead>
-    );
-  };
-
-  return (
-    <>
-      {/* 화면: 전체 테이블 가로 스크롤 */}
-      <div className="screen-only" style={{overflowX:'auto',marginTop:'8px',borderRadius:'2px',boxShadow:'0 1px 4px rgba(0,0,0,0.08)'}}>
-        <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'auto'}}>
-          {buildHead(entries, true, 0, false)}
-          {buildRows(entries, false)}
-        </table>
-      </div>
-
-      {/* 인쇄: 선택 항목 페이지 분할 */}
-      {chunks.map((chunk, ci) => (
-        <div key={ci} className="print-only"
-          style={{pageBreakBefore: ci>0 ? 'always' : 'auto', breakBefore: ci>0 ? 'page' : 'auto'}}>
-
-          {/* 각 페이지 자체 헤더 */}
-          <div style={{borderBottom:'1.5pt solid #0d1b2a',paddingBottom:'6pt',marginBottom:'8pt',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
-            <div>
-              <div style={{fontSize:'7pt',letterSpacing:'0.12em',color:'#c9a84c'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'15pt',fontWeight:500,lineHeight:1.2}}>{reportTitle||'건축물대장 비교 보고서'}</div>
-            </div>
-            <div style={{textAlign:'right',fontSize:'8pt',color:'#888'}}>
-              {reportDate}&nbsp;·&nbsp;총 {totalSel}건
-              {chunks.length > 1 && <span>&nbsp;·&nbsp;{ci+1}/{chunks.length} 페이지</span>}
-            </div>
-          </div>
-
-          {/* 칸 폭 고정: 항목열 65pt + 건물열 140pt씩 (페이지에 관계없이 동일) */}
-          <table style={{borderCollapse:'collapse', tableLayout:'fixed'}}>
-            <colgroup>
-              <col style={{width:'65pt'}} />
-              {chunk.items.map(e => <col key={e.id} style={{width:'140pt'}} />)}
-            </colgroup>
-            {buildHead(chunk.items, false, chunk.startIdx, true)}
-            {buildRows(chunk.items, true)}
-          </table>
-          <PrintFooter bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />
-        </div>
-      ))}
-    </>
-  );
-}
-
-// ── 마운트 ──
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+};
