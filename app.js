@@ -116,7 +116,12 @@ function App() {
   const [ents, setE]         = useState([mk(1)]);
   const [vw, setV]           = useState('cards');
   const [reportTitle, setRT] = useState('');
-  const [reportDate,  setRD] = useState(new Date().toISOString().slice(0,10));
+  const [reportDate,  setRD] = useState(() => {
+    const d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth()+1).padStart(2,'0') + '-' +
+      String(d.getDate()).padStart(2,'0');
+  });
   const [printMode,   setPM] = useState('landscape');
   const [showBiz,     setSB] = useState(false);
   const [bizName,     setBN] = useState('타임즈부동산중개');
