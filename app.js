@@ -112,8 +112,9 @@ const mk = id => ({
 // 메인 컴포넌트
 // ════════════════════════════════════════════════════
 function App() {
-  const [ents, setE] = useState([mk(1)]);
-  const [vw, setV]   = useState('cards');
+  const [ents, setE]      = useState([mk(1)]);
+  const [vw, setV]        = useState('cards');
+  const [reportTitle, setRT] = useState('');
 
   const up          = (id, d) => setE(p => p.map(e => e.id === id ? {...e, ...d} : e));
   const add         = ()      => setE(p => [...p, mk(_id++)]);
@@ -204,7 +205,12 @@ function App() {
             <button className={vw==='cards' ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('cards')}>▣ 카드</button>
             <button className={vw==='table' ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('table')}>≡ 비교표</button>
           </div>
-          <button className="blt" style={{fontSize:'12px'}} onClick={() => window.print()}>🖨 인쇄 / PDF</button>
+          <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+            <input type="text" placeholder="보고서 제목 (인쇄 시 표시)" value={reportTitle}
+              onChange={v => setRT(v.target.value)}
+              style={{width:'230px',fontSize:'12px'}} />
+            <button className="blt" style={{fontSize:'12px'}} onClick={() => window.print()}>🖨 인쇄 / PDF</button>
+          </div>
         </div>
       )}
 
@@ -213,7 +219,7 @@ function App() {
         <div style={{borderBottom:'2px solid #0d1b2a',paddingBottom:'14px',marginBottom:'20px',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
           <div>
             <div style={{fontSize:'9px',letterSpacing:'0.15em',color:'#c9a84c'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'26px',fontWeight:500}}>건축물대장 비교 보고서</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'26px',fontWeight:500}}>{reportTitle || '건축물대장 비교 보고서'}</div>
           </div>
           <div style={{textAlign:'right',fontSize:'11px',color:'#888'}}>{new Date().toLocaleDateString('ko-KR')} · 총 {rE.filter(e=>e.printSel).length}건</div>
         </div>
@@ -317,7 +323,7 @@ function RCard({ e, i, onTogglePrint }) {
   // 매매가 & 대지 평단가
   const priceNum = e.price && parseFloat(e.price) > 0 ? parseFloat(e.price) : null;
   const platPy   = it.platArea && parseFloat(it.platArea) > 0 ? parseFloat(it.platArea) / PY : null;
-  const ppPy     = (priceNum && platPy) ? (priceNum / platPy).toFixed(2) : null;
+  const ppPy     = (priceNum && platPy) ? Math.round(priceNum * 10000 / platPy).toLocaleString() : null;
 
   // 상단 3칸 (건폐율, 용적률, 세대수)
   const s3 = [
@@ -339,7 +345,7 @@ function RCard({ e, i, onTogglePrint }) {
   ];
 
   return (
-    <div className={e.printSel ? '' : 'print-hide'}
+    <div className={'pci' + (e.printSel ? '' : ' print-hide')}
          style={{background:'white',border:'1px solid #e0dcd4',padding:'24px',position:'relative'}}>
 
       {/* 인쇄 선택 체크박스 — 화면 전용 */}
@@ -390,7 +396,7 @@ function RCard({ e, i, onTogglePrint }) {
           <span style={{fontSize:'11px',color:'#888'}}>매매가</span>
           <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:600,color:'#0d1b2a'}}>
             {priceNum}억
-            {ppPy && <span style={{fontSize:'12px',fontWeight:400,color:'#888',marginLeft:'8px'}}>대지 평당 {ppPy}억</span>}
+            {ppPy && <span style={{fontSize:'12px',fontWeight:400,color:'#888',marginLeft:'8px'}}>평당 {ppPy}만원</span>}
           </span>
         </div>
       )}
@@ -440,18 +446,18 @@ function CmpT({ entries }) {
               </td>
             ))}
           </tr>
-          {/* 대지 평단가 행 */}
+          {/* 평단가 행 */}
           <tr>
-            <td className="plc" style={{background:'#fff9ec',padding:'9px 14px',color:'#c87000',fontWeight:600,border:'1px solid #e0dcd4',whiteSpace:'nowrap'}}>대지 평단가</td>
+            <td className="plc" style={{background:'#fff9ec',padding:'9px 14px',color:'#c87000',fontWeight:600,border:'1px solid #e0dcd4',whiteSpace:'nowrap'}}>평단가</td>
             {entries.map(e => {
               const pPy = e.res && e.res.platArea && parseFloat(e.res.platArea) > 0
                 ? parseFloat(e.res.platArea) / PY : null;
               const pN  = e.price && parseFloat(e.price) > 0 ? parseFloat(e.price) : null;
-              const pp  = (pN && pPy) ? (pN / pPy).toFixed(2) : null;
+              const pp  = (pN && pPy) ? Math.round(pN * 10000 / pPy).toLocaleString() : null;
               return (
                 <td key={e.id} className={e.printSel ? '' : 'print-hide'}
                   style={{padding:'9px 14px',border:'1px solid #e0dcd4',fontWeight:500}}>
-                  {pp ? pp + '억/평' : '—'}
+                  {pp ? pp + '만원/평' : '—'}
                 </td>
               );
             })}

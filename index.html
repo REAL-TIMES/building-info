@@ -29,14 +29,26 @@
 
     /* 인쇄 */
     @media print {
-      .no-print   { display: none !important; }
-      .screen-only{ display: none !important; }
-      .print-hide { display: none !important; }
-      .ph  { display: block !important; }
-      body { background: white; }
-      @page { margin: 10mm 12mm; size: A4 landscape; }
+      .no-print    { display: none !important; }
+      .screen-only { display: none !important; }
+      .print-hide  { display: none !important; }
+      .ph   { display: block !important; }
+      body  { background: white; }
+      @page {
+        margin: 12mm 14mm 16mm;
+        size: A4 landscape;
+        @bottom-center {
+          content: "- " counter(page) " / " counter(pages) " -";
+          font-size: 9pt;
+          color: #888;
+          font-family: 'Noto Sans KR', sans-serif;
+        }
+      }
       * { overflow: visible !important; max-height: none !important; }
+      /* 카드 그리드 */
       .cg  { display: grid !important; grid-template-columns: 1fr 1fr 1fr !important; gap: 12px !important; }
+      /* 카드 중간 잘림 방지 */
+      .pci { break-inside: avoid; page-break-inside: avoid; }
       .ptk { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #0d1b2a !important; color: white !important; }
       .plc { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #f7f4ef !important; }
     }
