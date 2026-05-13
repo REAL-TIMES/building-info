@@ -571,7 +571,12 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
             </div>
           </div>
 
-          <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
+          {/* 칸 폭 고정: 항목열 65pt + 건물열 140pt씩 (페이지에 관계없이 동일) */}
+          <table style={{borderCollapse:'collapse', tableLayout:'fixed'}}>
+            <colgroup>
+              <col style={{width:'65pt'}} />
+              {chunk.items.map(e => <col key={e.id} style={{width:'140pt'}} />)}
+            </colgroup>
             {buildHead(chunk.items, false, chunk.startIdx, true)}
             {buildRows(chunk.items, true)}
           </table>
