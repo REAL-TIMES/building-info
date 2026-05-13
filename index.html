@@ -15,6 +15,7 @@
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; background: #f7f4ef; color: #1a1a2e; font-family: 'Noto Sans KR', sans-serif; }
+    .print-only { display: none; }
 
     /* 버튼 */
     .bdk { background:#0d1b2a; color:#f7f4ef; border:none; padding:8px 16px; font-size:12px; cursor:pointer; font-family:inherit; letter-spacing:0.04em; transition:background 0.18s; }
@@ -32,6 +33,7 @@
       .no-print    { display: none !important; }
       .screen-only { display: none !important; }
       .print-hide  { display: none !important; }
+      .print-only  { display: block !important; }
       .ph   { display: block !important; }
       body  { background: white; }
       @page {
