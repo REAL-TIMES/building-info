@@ -707,6 +707,24 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
   );
 }
 
+// ── 수기 입력 + 자동 계산 병합 (RCard·CmpT 공통 사용) ──
+const mergeEntry = (e) => {
+  const it = e.res;
+  const m  = e.manual || {};
+  const manualPlat = m.platArea && parseFloat(m.platArea) > 0 ? parseFloat(m.platArea) : null;
+  const autoBcRat  = (manualPlat && it.archArea && parseFloat(it.archArea) > 0)
+    ? (parseFloat(it.archArea) / manualPlat * 100).toFixed(1) : null;
+  const autoVlRat  = (manualPlat && parseFloat(it.vlRatEstmTotArea || it.totArea || '0') > 0)
+    ? (parseFloat(it.vlRatEstmTotArea || it.totArea) / manualPlat * 100).toFixed(1) : null;
+  return {
+    ...it,
+    platArea: m.platArea || it.platArea,
+    bcRat:    m.bcRat    || autoBcRat || it.bcRat,
+    vlRat:    m.vlRat    || autoVlRat || it.vlRat,
+    hhldCnt:  m.hhldCnt  || it.hhldCnt,
+  };
+};
+
 // ── 비교 테이블 ──
 function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalSel, bizName, bizAddr, agentName, agentPhone, logoSrc }) {
   const printEntries = entries.filter(e => e.printSel);
@@ -761,7 +779,8 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
         <tr>
           <td style={{...gl, background: s2 ? gl.background : '#f5dfa0'}}>평단가</td>
           {cols.map(e => {
-            const pPy = e.res?.platArea && parseFloat(e.res.platArea)>0 ? parseFloat(e.res.platArea)/PY : null;
+            const merged = e.res ? mergeEntry(e) : {};
+            const pPy = merged.platArea && parseFloat(merged.platArea)>0 ? parseFloat(merged.platArea)/PY : null;
             const pN  = e.price && parseFloat(e.price)>0 ? parseFloat(e.price) : null;
             const pp  = (pN && pPy) ? Math.round(pN*10000/pPy).toLocaleString() : null;
             return <td key={e.id} style={{...tdFn(s2),fontWeight:600,color:'#1a1a2e'}}>{pp ? pp+'만원/평' : '—'}</td>;
@@ -772,7 +791,7 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
           return (
             <tr key={col.l}>
               <td style={{...pl, background: sv ? pl.background : '#e0dcd4'}}>{col.l}</td>
-              {cols.map(e => <td key={e.id} style={tdFn(sv)}>{e.res ? col.f(e.res) : '—'}</td>)}
+              {cols.map(e => <td key={e.id} style={tdFn(sv)}>{e.res ? col.f(mergeEntry(e)) : '—'}</td>)}
             </tr>
           );
         })}
