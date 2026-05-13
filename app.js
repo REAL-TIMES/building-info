@@ -138,6 +138,7 @@ function App() {
         '&bjdongCd=' + bC +
         '&bun=' + p.bun +
         '&ji='  + p.ji
+        '&_t='  + Date.now() 
       );
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const d = await res.json();
