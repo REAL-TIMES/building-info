@@ -231,7 +231,8 @@ function App() {
           : '@media print { @page { size: A4 portrait !important; margin: 12mm 14mm 16mm; } .cg { grid-template-columns: 1fr 1fr !important; } }'
       }} />
 
-      {/* 인쇄 헤더 */}
+      {/* 인쇄 헤더 — 카드 뷰에서만 표시 */}
+      {vw !== 'table' && (
       <div className="ph" style={{display:'none',padding:'24px 28px 0'}}>
         <div style={{borderBottom:'2px solid #0d1b2a',paddingBottom:'14px',marginBottom:'20px',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
           <div>
@@ -241,6 +242,7 @@ function App() {
           <div style={{textAlign:'right',fontSize:'11px',color:'#888'}}>{reportDate} · 총 {rE.filter(e=>e.printSel).length}건</div>
         </div>
       </div>
+      )}
 
       {/* 결과 영역 */}
       <main style={{padding:'10px 28px 48px',maxWidth:'1280px',margin:'0 auto'}}>
@@ -255,7 +257,7 @@ function App() {
             {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} />)}
           </div>
         )}
-        {hasR && vw==='table' && <CmpT entries={rE} togglePrint={togglePrint} printMode={printMode} />}
+        {hasR && vw==='table' && <CmpT entries={rE} togglePrint={togglePrint} printMode={printMode} reportTitle={reportTitle} reportDate={reportDate} totalSel={rE.filter(e=>e.printSel).length} />}
       </main>
     </div>
   );
@@ -440,7 +442,7 @@ function RCard({ e, i, onTogglePrint, onDelete }) {
 }
 
 // ── 비교 테이블 ──
-function CmpT({ entries, togglePrint, printMode }) {
+function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalSel }) {
   const printEntries = entries.filter(e => e.printSel);
   const splitSize    = 5;
   const chunks       = [];
@@ -448,62 +450,63 @@ function CmpT({ entries, togglePrint, printMode }) {
     chunks.push({ items: printEntries.slice(i, i + splitSize), startIdx: i });
   }
 
-  // 모든 데이터 셀 중앙정렬 (일관성)
-  const thBase  = { background:'#0d1b2a',color:'#f7f4ef',padding:'8px 10px',border:'1px solid #0d1b2a',fontWeight:500,fontSize:'11px',verticalAlign:'middle' };
-  const plcBase = { background:'#f0ede6',padding:'6px 10px',color:'#555',fontWeight:600,border:'1px solid #ddd8d0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'11px',textAlign:'center' };
-  const golBase = { background:'#fff3dc',padding:'6px 10px',color:'#b86c00',fontWeight:700,border:'1px solid #ddd8d0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'11px',textAlign:'center' };
-
-  const td = (stripe) => ({
-    padding: '6px 10px',
-    border: '1px solid #ddd8d0',
-    verticalAlign: 'middle',
-    fontSize: '11px',
-    lineHeight: 1.4,
-    textAlign: 'center',
+  // ── 화면용 스타일 ──
+  const sThBase  = { background:'#0d1b2a',color:'#f7f4ef',padding:'10px 12px',border:'1px solid #0d1b2a',fontWeight:500,fontSize:'12px',verticalAlign:'middle' };
+  const sPlcBase = { background:'#f0ede6',padding:'8px 10px',color:'#555',fontWeight:600,border:'1px solid #ddd8d0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'11px',textAlign:'center' };
+  const sGolBase = { background:'#fff3dc',padding:'8px 10px',color:'#b86c00',fontWeight:700,border:'1px solid #ddd8d0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'11px',textAlign:'center' };
+  const sTd = (stripe) => ({
+    padding:'8px 10px', border:'1px solid #ddd8d0', verticalAlign:'middle',
+    fontSize:'12px', lineHeight:1.5, textAlign:'center',
     background: stripe ? '#faf9f6' : 'white',
-    whiteSpace: 'normal',
-    wordBreak: 'keep-all',
+    whiteSpace:'normal', wordBreak:'keep-all',
   });
 
-  const renderRows = (cols) => {
-    let rowIdx = 0;
-    const stripe = () => rowIdx++ % 2 === 0;
+  // ── 인쇄용 스타일 (더 컴팩트) ──
+  const pThBase  = { background:'#0d1b2a',color:'#f7f4ef',padding:'5pt 6pt',border:'1px solid #0d1b2a',fontWeight:600,fontSize:'8.5pt',verticalAlign:'middle' };
+  const pPlcBase = { background:'#ede9e1',padding:'4pt 6pt',color:'#444',fontWeight:700,border:'1px solid #ccc8c0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'8pt',textAlign:'center' };
+  const pGolBase = { background:'#fff0cc',padding:'4pt 6pt',color:'#a05800',fontWeight:700,border:'1px solid #ccc8c0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'8pt',textAlign:'center' };
+  const pTd = (stripe) => ({
+    padding:'4pt 6pt', border:'1px solid #ccc8c0', verticalAlign:'middle',
+    fontSize:'8.5pt', lineHeight:1.3, textAlign:'center',
+    background: stripe ? '#faf8f4' : 'white',
+    whiteSpace:'normal', wordBreak:'keep-all',
+    overflow:'hidden',
+  });
 
-    const s0 = stripe();
-    const s1 = stripe();
-    const s2 = stripe();
-
+  const buildRows = (cols, isP) => {
+    const pl = isP ? pPlcBase : sPlcBase;
+    const gl = isP ? pGolBase : sGolBase;
+    const tdFn = isP ? pTd : sTd;
+    let ri = 0;
+    const s = () => ri++ % 2 === 0;
+    const s0=s(), s1=s(), s2=s();
     return (
       <tbody>
-        {/* 1. 주소 */}
         <tr>
-          <td style={{...plcBase, background: s0 ? '#f0ede6' : '#e8e4dc'}}>주소</td>
-          {cols.map(e => <td key={e.id} style={td(s0)}>{e.res ? (e.res.platPlc || '—') : '—'}</td>)}
+          <td style={{...pl, background: s0 ? pl.background : '#e0dcd4'}}>주소</td>
+          {cols.map(e => <td key={e.id} style={tdFn(s0)}>{e.res ? (e.res.platPlc||'—') : '—'}</td>)}
         </tr>
-        {/* 2. 매매가 */}
         <tr>
-          <td style={{...golBase, background: s1 ? '#fff3dc' : '#fde8b8'}}>매매가</td>
-          {cols.map(e => <td key={e.id} style={{...td(s1), fontWeight:600, color:'#1a1a2e'}}>
-            {e.price && parseFloat(e.price) > 0 ? parseFloat(e.price) + '억원' : '—'}
+          <td style={{...gl, background: s1 ? gl.background : '#f5dfa0'}}>매매가</td>
+          {cols.map(e => <td key={e.id} style={{...tdFn(s1),fontWeight:600,color:'#1a1a2e'}}>
+            {e.price && parseFloat(e.price)>0 ? parseFloat(e.price)+'억원' : '—'}
           </td>)}
         </tr>
-        {/* 3. 평단가 */}
         <tr>
-          <td style={{...golBase, background: s2 ? '#fff3dc' : '#fde8b8'}}>평단가</td>
+          <td style={{...gl, background: s2 ? gl.background : '#f5dfa0'}}>평단가</td>
           {cols.map(e => {
-            const pPy = e.res && e.res.platArea && parseFloat(e.res.platArea) > 0 ? parseFloat(e.res.platArea) / PY : null;
-            const pN  = e.price && parseFloat(e.price) > 0 ? parseFloat(e.price) : null;
-            const pp  = (pN && pPy) ? Math.round(pN * 10000 / pPy).toLocaleString() : null;
-            return <td key={e.id} style={{...td(s2), fontWeight:600, color:'#1a1a2e'}}>{pp ? pp + '만원/평' : '—'}</td>;
+            const pPy = e.res?.platArea && parseFloat(e.res.platArea)>0 ? parseFloat(e.res.platArea)/PY : null;
+            const pN  = e.price && parseFloat(e.price)>0 ? parseFloat(e.price) : null;
+            const pp  = (pN && pPy) ? Math.round(pN*10000/pPy).toLocaleString() : null;
+            return <td key={e.id} style={{...tdFn(s2),fontWeight:600,color:'#1a1a2e'}}>{pp ? pp+'만원/평' : '—'}</td>;
           })}
         </tr>
-        {/* 나머지 COLS (주소 제외) */}
         {COLS.slice(1).map(col => {
-          const s = stripe();
+          const sv = s();
           return (
             <tr key={col.l}>
-              <td style={{...plcBase, background: s ? '#f0ede6' : '#e8e4dc'}}>{col.l}</td>
-              {cols.map(e => <td key={e.id} style={td(s)}>{e.res ? col.f(e.res) : '—'}</td>)}
+              <td style={{...pl, background: sv ? pl.background : '#e0dcd4'}}>{col.l}</td>
+              {cols.map(e => <td key={e.id} style={tdFn(sv)}>{e.res ? col.f(e.res) : '—'}</td>)}
             </tr>
           );
         })}
@@ -511,53 +514,66 @@ function CmpT({ entries, togglePrint, printMode }) {
     );
   };
 
-  const renderHead = (cols, showCheck, startIdx) => (
-    <thead>
-      <tr>
-        <th style={{...plcBase, minWidth:'80px', background:'#0d1b2a', color:'#c9a84c', fontSize:'11px'}}>항목</th>
-        {cols.map((e, i) => (
-          <th key={e.id} className="ptk" style={{...thBase, textAlign:'left'}}>
-            <div style={{display:'flex',alignItems:'flex-start',gap:'6px'}}>
-              {showCheck && (
-                <label className="screen-only" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'3px',fontSize:'10px',color:'#c9a84c',flexShrink:0,paddingTop:'2px'}}>
-                  <input type="checkbox" checked={e.printSel} onChange={() => togglePrint(e.id)} />
-                  출력
-                </label>
-              )}
-              <div>
-                <div style={{display:'flex',alignItems:'center',gap:'5px',marginBottom:'2px'}}>
-                  <span style={{background:'#c9a84c',color:'white',minWidth:'16px',height:'16px',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700,flexShrink:0}}>{startIdx + i + 1}</span>
-                  <span style={{fontWeight:600,fontSize:'11px'}}>{e.alias || (e.res && e.res.bldNm) || ('건물 ' + (startIdx + i + 1))}</span>
-                </div>
-                {e.res && e.res.platPlc && (
-                  <div style={{fontSize:'10px',color:'#9ab',lineHeight:1.3}}>{e.res.platPlc}</div>
+  const buildHead = (cols, showCheck, startIdx, isP) => {
+    const th = isP ? pThBase : sThBase;
+    const pl = isP ? pPlcBase : sPlcBase;
+    return (
+      <thead>
+        <tr>
+          <th style={{...pl, minWidth: isP ? '0' : '80px', background:'#0d1b2a', color:'#c9a84c'}}>항목</th>
+          {cols.map((e, i) => (
+            <th key={e.id} className="ptk" style={{...th, textAlign:'left'}}>
+              <div style={{display:'flex',alignItems:'flex-start',gap:'5px'}}>
+                {showCheck && (
+                  <label className="screen-only" style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'3px',fontSize:'10px',color:'#c9a84c',flexShrink:0,paddingTop:'2px'}}>
+                    <input type="checkbox" checked={e.printSel} onChange={() => togglePrint(e.id)} />출력
+                  </label>
                 )}
+                <div>
+                  <div style={{display:'flex',alignItems:'center',gap:'4px',marginBottom:'2px'}}>
+                    <span style={{background:'#c9a84c',color:'white',minWidth:'16px',height:'16px',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700,flexShrink:0}}>{startIdx+i+1}</span>
+                    <span style={{fontWeight:600,fontSize: isP ? '8.5pt' : '12px'}}>{e.alias||(e.res&&e.res.bldNm)||('건물'+(startIdx+i+1))}</span>
+                  </div>
+                  {e.res?.platPlc && <div style={{fontSize: isP ? '7.5pt' : '10px',color:'#9ab',lineHeight:1.3}}>{e.res.platPlc}</div>}
+                </div>
               </div>
-            </div>
-          </th>
-        ))}
-      </tr>
-    </thead>
-  );
+            </th>
+          ))}
+        </tr>
+      </thead>
+    );
+  };
 
   return (
     <>
-      {/* 화면 */}
+      {/* 화면: 전체 테이블 가로 스크롤 */}
       <div className="screen-only" style={{overflowX:'auto',marginTop:'8px',borderRadius:'2px',boxShadow:'0 1px 4px rgba(0,0,0,0.08)'}}>
-        <table style={{width:'100%',borderCollapse:'collapse'}}>
-          {renderHead(entries, true, 0)}
-          {renderRows(entries)}
+        <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'auto'}}>
+          {buildHead(entries, true, 0, false)}
+          {buildRows(entries, false)}
         </table>
       </div>
 
-      {/* 인쇄 — 페이지 분할 (App 동적 스타일이 landscape 보장) */}
+      {/* 인쇄: 선택 항목 페이지 분할 */}
       {chunks.map((chunk, ci) => (
         <div key={ci} className="print-only"
-          style={{pageBreakBefore: ci > 0 ? 'always' : 'auto',
-                  breakBefore:     ci > 0 ? 'page'   : 'auto'}}>
-          <table style={{width:'100%',borderCollapse:'collapse'}}>
-            {renderHead(chunk.items, false, chunk.startIdx)}
-            {renderRows(chunk.items)}
+          style={{pageBreakBefore: ci>0 ? 'always' : 'auto', breakBefore: ci>0 ? 'page' : 'auto'}}>
+
+          {/* 각 페이지 자체 헤더 */}
+          <div style={{borderBottom:'1.5pt solid #0d1b2a',paddingBottom:'6pt',marginBottom:'8pt',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
+            <div>
+              <div style={{fontSize:'7pt',letterSpacing:'0.12em',color:'#c9a84c'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'15pt',fontWeight:500,lineHeight:1.2}}>{reportTitle||'건축물대장 비교 보고서'}</div>
+            </div>
+            <div style={{textAlign:'right',fontSize:'8pt',color:'#888'}}>
+              {reportDate}&nbsp;·&nbsp;총 {totalSel}건
+              {chunks.length > 1 && <span>&nbsp;·&nbsp;{ci+1}/{chunks.length} 페이지</span>}
+            </div>
+          </div>
+
+          <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
+            {buildHead(chunk.items, false, chunk.startIdx, true)}
+            {buildRows(chunk.items, true)}
           </table>
         </div>
       ))}
