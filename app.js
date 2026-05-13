@@ -593,17 +593,6 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
         </span>
       </div>
 
-      {/* 매매가 & 평단가 */}
-      {priceNum && (
-        <div style={{background:'#fff9ec',padding:'9px 12px',marginBottom:'4px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #e8a020'}}>
-          <span style={{fontSize:'11px',color:'#888'}}>매매가</span>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:600,color:'#0d1b2a'}}>
-            {priceNum}억
-            {ppPy && <span style={{fontSize:'12px',fontWeight:400,color:'#888',marginLeft:'8px'}}>평당 {ppPy}만원</span>}
-          </span>
-        </div>
-      )}
-
       <div style={{height:'8px'}} />
 
       {/* 하단 rows */}
@@ -620,20 +609,38 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
       <div className="screen-only" style={{marginTop:'10px',borderTop:'1px solid #f0ece4',paddingTop:'8px'}}>
         {/* 외부 링크 버튼 */}
         <div style={{display:'flex',gap:'5px',marginBottom:'7px',flexWrap:'wrap'}}>
-          <a href={eumUrl} target="_blank" rel="noreferrer"
-            style={{fontSize:'10px',padding:'3px 8px',background:'#f0f4ff',color:'#3a6fd8',border:'1px solid #b8ccff',textDecoration:'none'}}>
-            📋 토지이음
-          </a>
-          {it.platPlc && it.platPlc.includes('서울') && (
-            <a href={landUrl} target="_blank" rel="noreferrer"
-              style={{fontSize:'10px',padding:'3px 8px',background:'#f0fff4',color:'#2e7d32',border:'1px solid #a8d5b0',textDecoration:'none'}}>
-              🏙 서울부동산정보광장
-            </a>
-          )}
+          {/* 네이버지도 — 항상 작동 */}
           <a href={naverUrl} target="_blank" rel="noreferrer"
             style={{fontSize:'10px',padding:'3px 8px',background:'#f5f5f5',color:'#555',border:'1px solid #ddd',textDecoration:'none'}}>
             🗺 네이버지도
           </a>
+          {/* 카카오맵 */}
+          <a href={'https://map.kakao.com/?q=' + encodeURIComponent(it.platPlc||'')}
+            target="_blank" rel="noreferrer"
+            style={{fontSize:'10px',padding:'3px 8px',background:'#fff9e6',color:'#7a5c00',border:'1px solid #f0d060',textDecoration:'none'}}>
+            🗺 카카오맵
+          </a>
+          {/* 토지이음 메인 (세션 필요로 직접 접근 불가 — 메인 이동 후 주소로 검색) */}
+          <a href="https://www.eum.go.kr/web/ar/lu/luLandUseInit.do" target="_blank" rel="noreferrer"
+            title={'토지이음에서 아래 주소로 검색하세요:\n' + (it.platPlc||'')}
+            style={{fontSize:'10px',padding:'3px 8px',background:'#f0f4ff',color:'#3a6fd8',border:'1px solid #b8ccff',textDecoration:'none'}}>
+            📋 토지이음
+          </a>
+          {/* 서울부동산정보광장 */}
+          {it.platPlc && it.platPlc.includes('서울') && (
+            <a href="https://land.seoul.go.kr/land/" target="_blank" rel="noreferrer"
+              title={'서울부동산정보광장에서 아래 주소로 검색하세요:\n' + (it.platPlc||'')}
+              style={{fontSize:'10px',padding:'3px 8px',background:'#f0fff4',color:'#2e7d32',border:'1px solid #a8d5b0',textDecoration:'none'}}>
+              🏙 서울부동산정보광장
+            </a>
+          )}
+          {/* 주소 복사 */}
+          <button
+            onClick={() => { navigator.clipboard.writeText(it.platPlc||''); }}
+            title="검색용 주소를 클립보드에 복사합니다"
+            style={{fontSize:'10px',padding:'3px 8px',background:'#f7f4ef',color:'#888',border:'1px solid #e0dcd4',cursor:'pointer'}}>
+            📋 주소 복사
+          </button>
         </div>
 
         {/* 수기 입력 토글 버튼 */}
