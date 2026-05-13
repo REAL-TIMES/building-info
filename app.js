@@ -137,7 +137,7 @@ function App() {
         '/api/building?sigunguCd=' + sC +
         '&bjdongCd=' + bC +
         '&bun=' + p.bun +
-        '&ji='  + p.ji
+        '&ji='  + p.ji +
         '&_t='  + Date.now() 
       );
       if (!res.ok) throw new Error('HTTP ' + res.status);
