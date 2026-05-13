@@ -17,7 +17,7 @@ const R = {
     "마포구":  { c:"11440", d:{"공덕동":"10200","노고산동":"11000","도화동":"10400","동교동":"12100","망원동":"12300","마포동":"10700","상수동":"11500","서교동":"12000","아현동":"10100","연남동":"12400","합정동":"12200"} },
     "성동구":  { c:"11200", d:{"금호동1가":"10400","마장동":"11100","사근동":"11200","성수동1가":"11500","성수동2가":"11600","옥수동":"10800","왕십리동":"10100","응봉동":"10300","행당동":"10200"} },
     "광진구":  { c:"11215", d:{"광장동":"10600","구의동":"10500","군자동":"10200","능동":"10400","자양동":"10700","중곡동":"10300","화양동":"10100"} },
-    "영등포구":{ c:"11560", d:{"당산동":"11700","대림동":"13300","도림동":"11800","문래동1가":"11900","신길동":"13200","양평동1가":"12500","여의도동":"11000","영등포동":"10100"} },
+    "영등포구":{ c:"11560", d:{"당산동":"11700","대림동":"13300","도림동":"11800","문래동1가":"11900","신길동":"13200","양평동":"12500","양평동5가":"12900","여의도동":"11000","영등포동":"10100"} },
     "강서구":  { c:"11500", d:{"가양동":"10400","내발산동":"10600","등촌동":"10200","마곡동":"10500","방화동":"10900","염창동":"10100","화곡동":"10300"} },
     "동작구":  { c:"11590", d:{"노량진동":"10100","대방동":"10200","동작동":"10300","본동":"10400","사당동":"10500","상도동":"10600","신대방동":"10700","흑석동":"10800"} },
     "관악구":  { c:"11620", d:{"남현동":"10300","봉천동":"10100","신림동":"10200"} },
@@ -117,6 +117,12 @@ function App() {
   const [reportTitle, setRT] = useState('');
   const [reportDate,  setRD] = useState(new Date().toISOString().slice(0,10));
   const [printMode,   setPM] = useState('landscape');
+  const [showBiz,     setSB] = useState(false);
+  const [bizName,     setBN] = useState('타임즈부동산중개');
+  const [bizAddr,     setBA] = useState('서울특별시 서초구 반포동 반포프라자');
+  const [agentName,   setAN] = useState('');
+  const [agentPhone,  setAP] = useState('');
+  const [logoSrc,     setLG] = useState('');
 
   const up          = (id, d) => setE(p => p.map(e => e.id === id ? {...e, ...d} : e));
   const add         = ()      => setE(p => [...p, mk(_id++)]);
@@ -253,12 +259,99 @@ function App() {
           </div>
         )}
         {hasR && vw==='cards' && (
-          <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px'}}>
-            {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} />)}
-          </div>
+          <>
+            <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px'}}>
+              {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} />)}
+            </div>
+            {/* 카드 인쇄 푸터 */}
+            <div className="print-only">
+              <PrintFooter bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />
+            </div>
+          </>
         )}
-        {hasR && vw==='table' && <CmpT entries={rE} togglePrint={togglePrint} printMode={printMode} reportTitle={reportTitle} reportDate={reportDate} totalSel={rE.filter(e=>e.printSel).length} />}
+        {hasR && vw==='table' && <CmpT entries={rE} togglePrint={togglePrint} printMode={printMode} reportTitle={reportTitle} reportDate={reportDate} totalSel={rE.filter(e=>e.printSel).length} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />}
       </main>
+
+      {/* ── 출력 정보 설정 패널 (화면 전용) ── */}
+      <div className="no-print" style={{position:'fixed',bottom:0,left:0,right:0,background:'#ede9e1',borderTop:'1px solid #d8d4cc',zIndex:100}}>
+        <div style={{maxWidth:'1280px',margin:'0 auto',padding:'0 28px'}}>
+          <button onClick={() => setSB(p => !p)}
+            style={{background:'none',border:'none',cursor:'pointer',padding:'8px 0',fontSize:'11px',color:'#888',width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:'6px'}}>
+            <span style={{fontSize:'14px'}}>{showBiz ? '▲' : '▲'}</span>
+            출력 정보 설정 (로고·상호·담당자·연락처)
+            <span style={{marginLeft:'auto',fontSize:'10px',color:'#c9a84c'}}>
+              {showBiz ? '접기 ▼' : '펼치기 ▲'}
+            </span>
+          </button>
+          {showBiz && (
+            <div style={{paddingBottom:'14px',display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'flex-end'}}>
+              {/* 로고 */}
+              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                <span style={{fontSize:'10px',color:'#888'}}>로고 이미지</span>
+                <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                  <label style={{background:'#0d1b2a',color:'#c9a84c',padding:'5px 10px',fontSize:'11px',cursor:'pointer',border:'none'}}>
+                    파일 선택
+                    <input type="file" accept="image/*" style={{display:'none'}}
+                      onChange={ev => {
+                        const file = ev.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = e => setLG(e.target.result);
+                        reader.readAsDataURL(file);
+                      }} />
+                  </label>
+                  {logoSrc && <img src={logoSrc} style={{height:'32px',objectFit:'contain',border:'1px solid #e0dcd4'}} />}
+                  {logoSrc && <button onClick={() => setLG('')} style={{background:'none',border:'none',color:'#ccc',cursor:'pointer',fontSize:'16px'}}>×</button>}
+                </div>
+              </div>
+              {/* 상호 */}
+              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                <span style={{fontSize:'10px',color:'#888'}}>상호</span>
+                <input type="text" value={bizName} onChange={v => setBN(v.target.value)} style={{width:'160px',fontSize:'12px'}} />
+              </div>
+              {/* 주소 */}
+              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                <span style={{fontSize:'10px',color:'#888'}}>주소</span>
+                <input type="text" value={bizAddr} onChange={v => setBA(v.target.value)} style={{width:'260px',fontSize:'12px'}} />
+              </div>
+              {/* 담당자 */}
+              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                <span style={{fontSize:'10px',color:'#888'}}>담당자</span>
+                <input type="text" placeholder="이름" value={agentName} onChange={v => setAN(v.target.value)} style={{width:'100px',fontSize:'12px'}} />
+              </div>
+              {/* 연락처 */}
+              <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                <span style={{fontSize:'10px',color:'#888'}}>연락처</span>
+                <input type="text" placeholder="010-0000-0000" value={agentPhone} onChange={v => setAP(v.target.value)} style={{width:'130px',fontSize:'12px'}} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      {/* 고정 패널 높이만큼 여백 */}
+      <div className="no-print" style={{height: showBiz ? '120px' : '40px'}} />
+    </div>
+  );
+}
+
+// ── 인쇄 푸터 ──
+function PrintFooter({ bizName, bizAddr, agentName, agentPhone, logoSrc }) {
+  if (!bizName && !bizAddr && !agentName && !agentPhone && !logoSrc) return null;
+  return (
+    <div style={{marginTop:'10pt',paddingTop:'6pt',borderTop:'0.8pt solid #c9a84c',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'8pt',color:'#555',lineHeight:1.4}}>
+      <div style={{display:'flex',alignItems:'center',gap:'8pt'}}>
+        {logoSrc && <img src={logoSrc} style={{height:'22pt',objectFit:'contain',marginRight:'4pt'}} />}
+        <div>
+          {bizName && <div style={{fontWeight:700,fontSize:'9pt',color:'#0d1b2a',letterSpacing:'0.03em'}}>{bizName}</div>}
+          {bizAddr && <div style={{color:'#666'}}>{bizAddr}</div>}
+        </div>
+      </div>
+      {(agentName || agentPhone) && (
+        <div style={{textAlign:'right'}}>
+          {agentName && <div style={{fontWeight:600,color:'#0d1b2a'}}>{agentName}</div>}
+          {agentPhone && <div style={{color:'#666'}}>{agentPhone}</div>}
+        </div>
+      )}
     </div>
   );
 }
@@ -442,7 +535,7 @@ function RCard({ e, i, onTogglePrint, onDelete }) {
 }
 
 // ── 비교 테이블 ──
-function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalSel }) {
+function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalSel, bizName, bizAddr, agentName, agentPhone, logoSrc }) {
   const printEntries = entries.filter(e => e.printSel);
   const splitSize    = 5;
   const chunks       = [];
@@ -580,6 +673,7 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
             {buildHead(chunk.items, false, chunk.startIdx, true)}
             {buildRows(chunk.items, true)}
           </table>
+          <PrintFooter bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />
         </div>
       ))}
     </>
