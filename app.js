@@ -621,8 +621,8 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
             🗺 카카오맵
           </a>
           {/* 토지이음 메인 (세션 필요로 직접 접근 불가 — 메인 이동 후 주소로 검색) */}
-          <a href="https://www.eum.go.kr/web/ar/lu/luLandUseInit.do" target="_blank" rel="noreferrer"
-            title={'토지이음에서 아래 주소로 검색하세요:\n' + (it.platPlc||'')}
+          <a href="https://www.eum.go.kr/" target="_blank" rel="noreferrer"
+            title={'토지이음에서 아래 주소로 검색하세요:\n' + (it.platPlc||'').replace('번지','')}
             style={{fontSize:'10px',padding:'3px 8px',background:'#f0f4ff',color:'#3a6fd8',border:'1px solid #b8ccff',textDecoration:'none'}}>
             📋 토지이음
           </a>
@@ -636,7 +636,7 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
           )}
           {/* 주소 복사 */}
           <button
-            onClick={() => { navigator.clipboard.writeText(it.platPlc||''); }}
+            onClick={() => { navigator.clipboard.writeText((it.platPlc||'').replace('번지','')); }}
             title="검색용 주소를 클립보드에 복사합니다"
             style={{fontSize:'10px',padding:'3px 8px',background:'#f7f4ef',color:'#888',border:'1px solid #e0dcd4',cursor:'pointer'}}>
             📋 주소 복사
