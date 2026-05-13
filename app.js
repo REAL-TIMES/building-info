@@ -467,9 +467,17 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
     if (m[field] && parseFloat(m[field]) > 0) return m[field];
     return it[field];
   };
+
+  // 수기 대지면적으로 건폐율·용적률 자동 계산
+  const manualPlat = m.platArea && parseFloat(m.platArea) > 0 ? parseFloat(m.platArea) : null;
+  const autoBcRat = (manualPlat && it.archArea && parseFloat(it.archArea) > 0)
+    ? (parseFloat(it.archArea) / manualPlat * 100).toFixed(1) : null;
+  const autoVlRat = (manualPlat && parseFloat(it.vlRatEstmTotArea || it.totArea || '0') > 0)
+    ? (parseFloat(it.vlRatEstmTotArea || it.totArea) / manualPlat * 100).toFixed(1) : null;
+
   const platArea = val('platArea');
-  const bcRat    = val('bcRat');
-  const vlRat    = val('vlRat');
+  const bcRat    = m.bcRat || autoBcRat || it.bcRat;   // 수기 > 자동계산 > API
+  const vlRat    = m.vlRat || autoVlRat || it.vlRat;
   const hhldCnt  = val('hhldCnt');
 
   // 누락된 핵심 필드 확인
@@ -478,12 +486,20 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
     !bcRat || parseFloat(bcRat) <= 0 ||
     !vlRat || parseFloat(vlRat) <= 0;
 
-  // 토지이음 URL (PNU = sigunguCd + bjdongCd + platGbCd + bun + ji)
-  const pnu = it.sigunguCd && it.bjdongCd && it.bun
-    ? it.sigunguCd + it.bjdongCd + (it.platGbCd||'0') + it.bun + (it.ji||'0000')
+  // 토지이음 PNU: sigunguCd(5) + bjdongCd(5) + 산여부(1: 대지=1,산=2) + bun(4) + ji(4)
+  // 건축물대장 platGbCd: 0=대지, 1=산 → PNU: 1=대지, 2=산
+  const pnuGbn = it.platGbCd === '1' ? '2' : '1';
+  const pnu = (it.sigunguCd && it.bjdongCd && it.bun)
+    ? it.sigunguCd + it.bjdongCd + pnuGbn + it.bun + (it.ji || '0000')
     : null;
-  const eumUrl   = pnu ? `https://www.eum.go.kr/web/ar/lu/luLandUseInfo.do?pnu=${pnu}` : 'https://www.eum.go.kr';
-  const landUrl  = `https://land.seoul.go.kr/land/central/LandCentralSearch.do?searchSe=1&searchWord=${encodeURIComponent(it.platPlc||'')}`;
+  const eumUrl  = pnu
+    ? 'https://www.eum.go.kr/web/ar/lu/luLandUseInfo.do?pnu=' + pnu
+    : 'https://www.eum.go.kr';
+  // 서울 부동산정보광장 — 지번 검색
+  const landUrl = 'https://land.seoul.go.kr/land/central/LandCentralSearch.do?searchKeyword='
+    + encodeURIComponent((it.platPlc||'').replace('번지','').trim());
+  // 네이버 지도 검색 (항상 작동하는 대안)
+  const naverUrl = 'https://map.naver.com/v5/search/' + encodeURIComponent(it.platPlc||'');
 
   const title = e.alias || it.bldNm || it.platPlc;
 
@@ -614,6 +630,10 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
               🏙 서울부동산정보광장
             </a>
           )}
+          <a href={naverUrl} target="_blank" rel="noreferrer"
+            style={{fontSize:'10px',padding:'3px 8px',background:'#f5f5f5',color:'#555',border:'1px solid #ddd',textDecoration:'none'}}>
+            🗺 네이버지도
+          </a>
         </div>
 
         {/* 수기 입력 토글 버튼 */}
@@ -626,25 +646,47 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
         {showManual && (
           <div style={{marginTop:'6px',background:'#fafaf8',border:'1px solid #e8e4dc',padding:'10px'}}>
             <div style={{fontSize:'10px',color:'#aaa',marginBottom:'8px'}}>
-              API에 없는 항목을 직접 입력하세요. 입력값이 API 데이터보다 우선 적용됩니다.
+              API에 없는 항목을 입력하세요. 대지면적 입력 시 건폐율·용적률이 자동 계산됩니다.
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
-              {[
-                {label:'대지면적 (㎡)', field:'platArea'},
-                {label:'건폐율 (%)',    field:'bcRat'},
-                {label:'용적률 (%)',    field:'vlRat'},
-                {label:'세대수',       field:'hhldCnt'},
-              ].map(({label, field}) => (
-                <div key={field}>
-                  <div style={{fontSize:'10px',color:'#888',marginBottom:'2px'}}>
-                    {label}
-                    {it[field] && parseFloat(it[field])>0 && <span style={{color:'#ccc',marginLeft:'4px'}}>(API: {it[field]})</span>}
-                  </div>
-                  <input type="text" value={m[field]||''} placeholder="직접 입력"
-                    onChange={ev => onManual(e.id, field, ev.target.value)}
-                    style={{width:'100%',fontSize:'12px',padding:'4px 6px',border:'1px solid ' + (m[field] ? '#c9a84c' : '#e0dcd4'),boxSizing:'border-box'}} />
+              {/* 대지면적 */}
+              <div>
+                <div style={{fontSize:'10px',color:'#888',marginBottom:'2px'}}>대지면적 (㎡)</div>
+                <input type="text" value={m.platArea||''} placeholder="직접 입력"
+                  onChange={ev => onManual(e.id, 'platArea', ev.target.value)}
+                  style={{width:'100%',fontSize:'12px',padding:'4px 6px',border:'1px solid ' + (m.platArea ? '#c9a84c' : '#e0dcd4'),boxSizing:'border-box'}} />
+              </div>
+              {/* 건폐율 — 자동계산 표시 */}
+              <div>
+                <div style={{fontSize:'10px',color:'#888',marginBottom:'2px'}}>
+                  건폐율 (%)
+                  {autoBcRat && !m.bcRat && <span style={{color:'#2e7d32',marginLeft:'4px'}}>자동: {autoBcRat}%</span>}
+                  {m.bcRat && <span style={{color:'#c9a84c',marginLeft:'4px'}}>수기입력</span>}
                 </div>
-              ))}
+                <input type="text" value={m.bcRat||''}
+                  placeholder={autoBcRat ? '자동계산: ' + autoBcRat + '%' : '직접 입력'}
+                  onChange={ev => onManual(e.id, 'bcRat', ev.target.value)}
+                  style={{width:'100%',fontSize:'12px',padding:'4px 6px',border:'1px solid ' + (m.bcRat ? '#c9a84c' : autoBcRat ? '#a8d5b0' : '#e0dcd4'),boxSizing:'border-box',background: autoBcRat && !m.bcRat ? '#f0fff4' : 'white'}} />
+              </div>
+              {/* 용적률 — 자동계산 표시 */}
+              <div>
+                <div style={{fontSize:'10px',color:'#888',marginBottom:'2px'}}>
+                  용적률 (%)
+                  {autoVlRat && !m.vlRat && <span style={{color:'#2e7d32',marginLeft:'4px'}}>자동: {autoVlRat}%</span>}
+                  {m.vlRat && <span style={{color:'#c9a84c',marginLeft:'4px'}}>수기입력</span>}
+                </div>
+                <input type="text" value={m.vlRat||''}
+                  placeholder={autoVlRat ? '자동계산: ' + autoVlRat + '%' : '직접 입력'}
+                  onChange={ev => onManual(e.id, 'vlRat', ev.target.value)}
+                  style={{width:'100%',fontSize:'12px',padding:'4px 6px',border:'1px solid ' + (m.vlRat ? '#c9a84c' : autoVlRat ? '#a8d5b0' : '#e0dcd4'),boxSizing:'border-box',background: autoVlRat && !m.vlRat ? '#f0fff4' : 'white'}} />
+              </div>
+              {/* 세대수 */}
+              <div>
+                <div style={{fontSize:'10px',color:'#888',marginBottom:'2px'}}>세대수</div>
+                <input type="text" value={m.hhldCnt||''} placeholder="직접 입력"
+                  onChange={ev => onManual(e.id, 'hhldCnt', ev.target.value)}
+                  style={{width:'100%',fontSize:'12px',padding:'4px 6px',border:'1px solid ' + (m.hhldCnt ? '#c9a84c' : '#e0dcd4'),boxSizing:'border-box'}} />
+              </div>
             </div>
           </div>
         )}
