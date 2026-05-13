@@ -148,8 +148,9 @@ function App() {
 
       const raw = d.response && d.response.body && d.response.body.items && d.response.body.items.item;
       if (!raw) throw new Error('결과 없음 — 주소·번지를 재확인하세요');
-
-      const items = Array.isArray(raw) ? raw : [raw];
+      const itemArr = raw ? (Array.isArray(raw) ? raw : [raw]) : [];
+      if (itemArr.length === 0) throw new Error('결과 없음 — 네이버 지도에서 지번을 확인하세요');
+      const items = itemArr;
       if (items.length === 0) throw new Error('결과 없음 — 법정동코드 또는 번지를 확인하세요'); 
       const main  = items.find(i => i.mainAtchGbCd === '0') || items[0];
       up(ent.id, { ld:false, res:main });
