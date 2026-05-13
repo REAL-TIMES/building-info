@@ -17,7 +17,7 @@ module.exports = (req, res) => {
   }
 
   const apiUrl =
-    'https://apis.data.go.kr/1613000/BldRgstHubService/getBrBasisOulnInfo' +
+    'https://apis.data.go.kr/1613000/BldRgstHubService/getBrTitleInfo' +
     '?serviceKey='  + KEY +
     '&sigunguCd='   + encodeURIComponent(sigunguCd) +
     '&bjdongCd='    + encodeURIComponent(bjdongCd) +
