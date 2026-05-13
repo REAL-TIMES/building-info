@@ -1,0 +1,8 @@
+{
+  "name": "times-building-comparator",
+  "version": "1.0.0",
+  "description": "타임즈부동산중개 건축물대장 비교 조회 툴",
+  "engines": {
+    "node": ">=16"
+  }
+}
