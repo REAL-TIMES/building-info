@@ -150,6 +150,7 @@ function App() {
       if (!raw) throw new Error('결과 없음 — 주소·번지를 재확인하세요');
 
       const items = Array.isArray(raw) ? raw : [raw];
+      if (items.length === 0) throw new Error('결과 없음 — 법정동코드 또는 번지를 확인하세요'); 
       const main  = items.find(i => i.mainAtchGbCd === '0') || items[0];
       up(ent.id, { ld:false, res:main });
     } catch(e) {
