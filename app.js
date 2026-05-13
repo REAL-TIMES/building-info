@@ -201,13 +201,18 @@ function App() {
                   전체삭제
                 </button>
               )}
-              <button className="blt" style={{fontSize:'11px',padding:'6px 14px'}} onClick={add}>+ 건물 추가</button>
               <button className="bdk" onClick={() => ents.forEach(e => go(e))}>
                 {ents.some(e => e.ld) ? '조회 중…' : '전체 조회 ▶'}
               </button>
             </div>
           </div>
           {ents.map((e, i) => <ERow key={e.id} e={e} i={i} n={ents.length} sidos={sidos} sgs={sgs} ds={ds} up={up} rm={rm} go={go} />)}
+
+          {/* 건물 추가 — 마지막 행 바로 아래 */}
+          <button className="blt" style={{fontSize:'12px',padding:'8px 18px',marginTop:'4px',display:'flex',alignItems:'center',gap:'6px'}}
+            onClick={add}>
+            <span style={{fontSize:'16px',lineHeight:1}}>+</span> 건물 추가
+          </button>
           <p style={{fontSize:'11px',color:'#aaa',marginTop:'8px',lineHeight:1.7}}>
             ※ 동 코드가 없으면 "코드 직접입력"으로 시군구코드(5자리)·법정동코드(5자리)를 직접 입력하세요.
           </p>
