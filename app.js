@@ -65,7 +65,7 @@ const R = {
 const PY = 3.3058;
 const py  = v => v ? (parseFloat(v) / PY).toFixed(1) : null;
 const m2  = v => (v != null && v !== '' && parseFloat(v) > 0)
-  ? parseFloat(v).toFixed(1) + '㎡ (약 ' + py(v) + '평)' : '—';
+  ? py(v) + '평 (약 ' + parseFloat(v).toFixed(1) + '㎡)' : '—';
 const pct = v => (v != null && v !== '' && parseFloat(v) > 0) ? parseFloat(v).toFixed(1) + '%' : '—';
 const dt  = v => {
   if (!v) return '—';
@@ -80,7 +80,7 @@ const parseBJ = str => {
 
 // ── 비교표 항목 (높이 제거, 용도지역 추가) ──
 const COLS = [
-  { l:'대지위치',        f: i => i.platPlc || '—' },
+  { l:'주소',            f: i => i.platPlc || '—' },
   { l:'주용도',          f: i => [i.mainPurpsCdNm, i.etcPurps].filter(Boolean).join(' / ') || '—' },
   { l:'용도지역',        f: i => i.jiyukCdNm || '—' },
   { l:'주구조',          f: i => i.strctCdNm || i.mainStrctCdNm || '—' },
@@ -115,7 +115,8 @@ function App() {
   const [ents, setE]         = useState([mk(1)]);
   const [vw, setV]           = useState('cards');
   const [reportTitle, setRT] = useState('');
-  const [printMode, setPM]   = useState('landscape'); // landscape | portrait
+  const [reportDate,  setRD] = useState(new Date().toISOString().slice(0,10));
+  const [printMode,   setPM] = useState('landscape');
 
   const up          = (id, d) => setE(p => p.map(e => e.id === id ? {...e, ...d} : e));
   const add         = ()      => setE(p => [...p, mk(_id++)]);
@@ -210,9 +211,12 @@ function App() {
             <span style={{fontSize:'11px',color:'#aaa'}}>인쇄 방향:</span>
             <button className={printMode==='landscape' ? 'bdk' : 'blt'} style={{fontSize:'11px',padding:'5px 10px'}} onClick={() => setPM('landscape')}>가로 3칸</button>
             <button className={printMode==='portrait'  ? 'bdk' : 'blt'} style={{fontSize:'11px',padding:'5px 10px'}} onClick={() => setPM('portrait')}>세로 4칸</button>
-            <input type="text" placeholder="보고서 제목 (인쇄 시 표시)" value={reportTitle}
+            <input type="text" placeholder="보고서 제목" value={reportTitle}
               onChange={v => setRT(v.target.value)}
-              style={{width:'210px',fontSize:'12px',marginLeft:'6px'}} />
+              style={{width:'180px',fontSize:'12px',marginLeft:'6px'}} />
+            <input type="date" value={reportDate}
+              onChange={v => setRD(v.target.value)}
+              style={{fontSize:'12px',width:'140px'}} />
             <button className="blt" style={{fontSize:'12px'}} onClick={() => window.print()}>🖨 인쇄 / PDF</button>
           </div>
         </div>
@@ -232,7 +236,7 @@ function App() {
             <div style={{fontSize:'9px',letterSpacing:'0.15em',color:'#c9a84c'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'26px',fontWeight:500}}>{reportTitle || '건축물대장 비교 보고서'}</div>
           </div>
-          <div style={{textAlign:'right',fontSize:'11px',color:'#888'}}>{new Date().toLocaleDateString('ko-KR')} · 총 {rE.filter(e=>e.printSel).length}건</div>
+          <div style={{textAlign:'right',fontSize:'11px',color:'#888'}}>{reportDate} · 총 {rE.filter(e=>e.printSel).length}건</div>
         </div>
       </div>
 
@@ -383,7 +387,7 @@ function RCard({ e, i, onTogglePrint }) {
 
       {/* 매매가 & 평단가 — 주소 바로 아래 */}
       {priceNum && (
-        <div style={{marginLeft:'22px',marginRight:'0',marginBottom:'10px',background:'#fff9ec',padding:'8px 12px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #e8a020'}}>
+        <div style={{marginBottom:'4px',background:'#fff9ec',padding:'9px 12px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #e8a020'}}>
           <span style={{fontSize:'11px',color:'#888'}}>매매가</span>
           <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:600,color:'#0d1b2a'}}>
             {priceNum}억
@@ -403,11 +407,11 @@ function RCard({ e, i, onTogglePrint }) {
       </div>
 
       {/* 대지면적 강조 박스 */}
-      <div style={{background:'#f5f2eb',padding:'9px 12px',marginBottom:'10px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #c9a84c'}}>
+      <div style={{background:'#f5f2eb',padding:'9px 12px',marginBottom:'4px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #c9a84c'}}>
         <span style={{fontSize:'11px',color:'#888'}}>대지면적</span>
         <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:600,color:'#0d1b2a'}}>
           {it.platArea && parseFloat(it.platArea) > 0
-            ? <>{parseFloat(it.platArea).toFixed(1)}㎡ <span style={{fontSize:'13px',fontWeight:400,color:'#888'}}>({py(it.platArea)}평)</span></>
+            ? <>{py(it.platArea)}평 <span style={{fontSize:'13px',fontWeight:400,color:'#888'}}>({parseFloat(it.platArea).toFixed(1)}㎡)</span></>
             : '—'}
         </span>
       </div>
@@ -427,25 +431,31 @@ function RCard({ e, i, onTogglePrint }) {
 
 // ── 비교 테이블 ──
 function CmpT({ entries, togglePrint, printMode }) {
-  // 인쇄용: 선택된 항목만, 페이지당 건수 분할
   const printEntries = entries.filter(e => e.printSel);
-  const splitSize    = printMode === 'portrait' ? 4 : 5;
+  const splitSize    = 5; // 비교표는 가로 고정, 페이지당 5건
   const chunks       = [];
   for (let i = 0; i < printEntries.length; i += splitSize) {
-    chunks.push(printEntries.slice(i, i + splitSize));
+    chunks.push({ items: printEntries.slice(i, i + splitSize), startIdx: i });
   }
 
-  const thStyle  = { background:'#0d1b2a',color:'#f7f4ef',padding:'10px 14px',textAlign:'left',border:'1px solid #0d1b2a',minWidth:'180px',fontWeight:500 };
-  const tdStyle  = { padding:'9px 14px',border:'1px solid #e0dcd4',verticalAlign:'top',lineHeight:1.6 };
-  const plcStyle = { background:'#f7f4ef',padding:'9px 14px',color:'#666',fontWeight:500,border:'1px solid #e0dcd4',whiteSpace:'nowrap',verticalAlign:'top' };
-  const golStyle = { background:'#fff9ec',padding:'9px 14px',color:'#c87000',fontWeight:600,border:'1px solid #e0dcd4',whiteSpace:'nowrap' };
+  const thStyle  = { background:'#0d1b2a',color:'#f7f4ef',padding:'8px 12px',textAlign:'left',border:'1px solid #0d1b2a',minWidth:'170px',fontWeight:500,fontSize:'12px' };
+  const tdStyle  = { padding:'7px 12px',border:'1px solid #e0dcd4',verticalAlign:'top',lineHeight:1.5,fontSize:'12px' };
+  const plcStyle = { background:'#f7f4ef',padding:'7px 12px',color:'#666',fontWeight:500,border:'1px solid #e0dcd4',whiteSpace:'nowrap',verticalAlign:'top',fontSize:'12px' };
+  const golStyle = { background:'#fff9ec',padding:'7px 12px',color:'#c87000',fontWeight:600,border:'1px solid #e0dcd4',whiteSpace:'nowrap',fontSize:'12px' };
 
   const renderRows = (cols) => (
     <tbody>
+      {/* 1. 주소 */}
+      <tr>
+        <td style={plcStyle}>주소</td>
+        {cols.map(e => <td key={e.id} style={tdStyle}>{e.res ? (e.res.platPlc || '—') : '—'}</td>)}
+      </tr>
+      {/* 2. 매매가 */}
       <tr>
         <td style={golStyle}>매매가</td>
         {cols.map(e => <td key={e.id} style={tdStyle}>{e.price && parseFloat(e.price) > 0 ? parseFloat(e.price) + '억원' : '—'}</td>)}
       </tr>
+      {/* 3. 평단가 */}
       <tr>
         <td style={golStyle}>평단가</td>
         {cols.map(e => {
@@ -455,7 +465,8 @@ function CmpT({ entries, togglePrint, printMode }) {
           return <td key={e.id} style={tdStyle}>{pp ? pp + '만원/평' : '—'}</td>;
         })}
       </tr>
-      {COLS.map(col => (
+      {/* 나머지 항목 (주소 제외) */}
+      {COLS.slice(1).map(col => (
         <tr key={col.l}>
           <td style={plcStyle}>{col.l}</td>
           {cols.map(e => <td key={e.id} style={tdStyle}>{e.res ? col.f(e.res) : '—'}</td>)}
@@ -464,10 +475,10 @@ function CmpT({ entries, togglePrint, printMode }) {
     </tbody>
   );
 
-  const renderHead = (cols, showCheck) => (
+  const renderHead = (cols, showCheck, startIdx) => (
     <thead>
       <tr>
-        <th style={{...plcStyle,minWidth:'110px',fontWeight:500,whiteSpace:'nowrap'}}>항목</th>
+        <th style={{...plcStyle,minWidth:'100px'}}>항목</th>
         {cols.map((e, i) => (
           <th key={e.id} className="ptk" style={thStyle}>
             <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
@@ -477,8 +488,8 @@ function CmpT({ entries, togglePrint, printMode }) {
                   출력
                 </label>
               )}
-              <span style={{background:'#c9a84c',color:'white',minWidth:'20px',height:'20px',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700,flexShrink:0}}>{i+1}</span>
-              <span>{e.alias || (e.res && e.res.bldNm) || ('건물 ' + (i+1))}</span>
+              <span style={{background:'#c9a84c',color:'white',minWidth:'20px',height:'20px',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:700,flexShrink:0}}>{startIdx + i + 1}</span>
+              <span>{e.alias || (e.res && e.res.bldNm) || ('건물 ' + (startIdx + i + 1))}</span>
             </div>
           </th>
         ))}
@@ -488,23 +499,27 @@ function CmpT({ entries, togglePrint, printMode }) {
 
   return (
     <>
+      {/* 비교표 인쇄: 항상 가로 A4 고정 */}
+      <style dangerouslySetInnerHTML={{__html:
+        '@media print { @page { size: A4 landscape !important; margin: 10mm 12mm 15mm; } }'
+      }} />
+
       {/* 화면: 전체 테이블, 가로 스크롤 */}
       <div className="screen-only" style={{overflowX:'auto',marginTop:'8px'}}>
-        <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
-          {renderHead(entries, true)}
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          {renderHead(entries, true, 0)}
           {renderRows(entries)}
         </table>
       </div>
 
-      {/* 인쇄: 선택된 항목만, 페이지별 분할 */}
+      {/* 인쇄: 선택된 항목만, 페이지별 분할, 번호 연속 */}
       {chunks.map((chunk, ci) => (
         <div key={ci} className="print-only"
-          style={{pageBreakAfter: ci < chunks.length-1 ? 'always' : 'auto',
-                  breakAfter:     ci < chunks.length-1 ? 'page' : 'auto',
-                  marginTop: ci > 0 ? '0' : '0'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:'12px'}}>
-            {renderHead(chunk, false)}
-            {renderRows(chunk)}
+          style={{pageBreakBefore: ci > 0 ? 'always' : 'auto',
+                  breakBefore:     ci > 0 ? 'page'   : 'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            {renderHead(chunk.items, false, chunk.startIdx)}
+            {renderRows(chunk.items)}
           </table>
         </div>
       ))}
