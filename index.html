@@ -34,11 +34,9 @@
       .screen-only { display: none !important; }
       .print-hide  { display: none !important; }
       .print-only  { display: block !important; }
-      .ph   { display: block !important; }
+      .ph   { display: block !important; page-break-after: avoid; break-after: avoid; }
       body  { background: white; }
       @page {
-        margin: 12mm 14mm 16mm;
-        size: A4 landscape;
         @bottom-center {
           content: "- " counter(page) " / " counter(pages) " -";
           font-size: 9pt;
