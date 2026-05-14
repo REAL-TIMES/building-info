@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.3.4';
+const VERSION = 'v1.3.5';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -114,7 +114,8 @@ const mk = id => ({
   mapPhoto:null,    // 지도 스크린샷 (base64)
   mapCoords:null,   // {lat, lon} 자동 지오코딩 결과
   analysis:{ traffic:'', commercial:'', population:'', development:'' },
-  income:{ deposit:'', monthlyRent:'', mgmtFee:'', loanAmt:'', loanRate:'5.0', acquiTax:'4.6', targetYield:'' }
+  income:{ deposit:'', monthlyRent:'', mgmtFee:'', loanAmt:'', loanRate:'5.0', acquiTax:'4.6', targetYield:'' },
+  notes:''   // 추가 설명 (각 줄 앞에 • 자동 처리)
 });
 
 // ════════════════════════════════════════════════════
@@ -145,6 +146,7 @@ function App() {
   const addPhoto    = (id, src) => setE(p => p.map(e => e.id === id ? {...e, photos:[...(e.photos||[]),src].slice(0,3)} : e));
   const rmPhoto     = (id, idx) => setE(p => p.map(e => e.id === id ? {...e, photos:(e.photos||[]).filter((_,i)=>i!==idx)} : e));
   const setMapPhoto = (id, src) => setE(p => p.map(e => e.id === id ? {...e, mapPhoto:src} : e));
+  const upNotes     = (id, val) => setE(p => p.map(e => e.id === id ? {...e, notes:val} : e));
   const add         = ()      => setE(p => [...p, mk(_id++)]);
   const rm          = id      => setE(p => p.filter(e => e.id !== id));
   const togglePrint = id      => setE(p => p.map(e => e.id === id ? {...e, printSel:!e.printSel} : e));
@@ -340,7 +342,7 @@ function App() {
           </>
         )}
         {hasR && vw==='table'  && <CmpT entries={rE} togglePrint={togglePrint} printMode={printMode} reportTitle={reportTitle} reportDate={reportDate} totalSel={rE.filter(e=>e.printSel).length} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />}
-        {hasR && vw==='report' && <ReportView entries={rE} reportTitle={reportTitle} reportDate={reportDate} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} />}
+        {hasR && vw==='report' && <ReportView entries={rE} reportTitle={reportTitle} reportDate={reportDate} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes} />}
       </main>
 
       {/* ── 출력 정보 설정 패널 (화면 전용) ── */}
@@ -597,7 +599,7 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
         {(it.jiyukCdNm || m.jiyukCdNm) && (
           <div style={{fontSize:'10px',color:'#888',marginBottom:'4px'}}>
             {m.jiyukCdNm || it.jiyukCdNm}
-            {m.jiyukCdNm && <span style={{color:'#c9a84c',marginLeft:'4px',fontSize:'9px'}}>✓수기</span>}
+            {m.jiyukCdNm && <span className="no-print" style={{color:'#c9a84c',marginLeft:'4px',fontSize:'9px'}}>✓수기</span>}
           </div>
         )}
         <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'20px',fontWeight:600,lineHeight:1.2,marginBottom:'4px',color:'#0d1b2a'}}>{title}</div>
@@ -630,7 +632,7 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
       <div style={{background: missingPlatArea && !m.platArea ? '#fff5f4' : '#f5f2eb', padding:'9px 12px',marginBottom:'4px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid ' + (missingPlatArea && !m.platArea ? '#e74c3c' : '#c9a84c')}}>
         <span style={{fontSize:'11px',color:'#888'}}>대지면적
           {missingPlatArea && !m.platArea && <span style={{color:'#e74c3c',marginLeft:'4px',fontSize:'10px'}}>미확인</span>}
-          {m.platArea && <span style={{color:'#2e7d32',marginLeft:'4px',fontSize:'10px'}}>✓수기</span>}
+          {m.platArea && <span className="no-print" style={{color:'#2e7d32',marginLeft:'4px',fontSize:'10px'}}>✓수기</span>}
         </span>
         <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:600,color:'#0d1b2a'}}>
           {platArea && parseFloat(platArea) > 0
@@ -714,7 +716,7 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
                 <div style={{fontSize:'10px',color:'#888',marginBottom:'2px'}}>
                   건폐율 (%)
                   {autoBcRat && !m.bcRat && <span style={{color:'#2e7d32',marginLeft:'4px'}}>자동: {autoBcRat}%</span>}
-                  {m.bcRat && <span style={{color:'#c9a84c',marginLeft:'4px'}}>수기입력</span>}
+                  {m.bcRat && <span className="no-print" style={{color:'#c9a84c',marginLeft:'4px'}}>수기입력</span>}
                 </div>
                 <input type="text" value={m.bcRat||''}
                   placeholder={autoBcRat ? '자동계산: ' + autoBcRat + '%' : '직접 입력'}
@@ -726,7 +728,7 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
                 <div style={{fontSize:'10px',color:'#888',marginBottom:'2px'}}>
                   용적률 (%)
                   {autoVlRat && !m.vlRat && <span style={{color:'#2e7d32',marginLeft:'4px'}}>자동: {autoVlRat}%</span>}
-                  {m.vlRat && <span style={{color:'#c9a84c',marginLeft:'4px'}}>수기입력</span>}
+                  {m.vlRat && <span className="no-print" style={{color:'#c9a84c',marginLeft:'4px'}}>수기입력</span>}
                 </div>
                 <input type="text" value={m.vlRat||''}
                   placeholder={autoVlRat ? '자동계산: ' + autoVlRat + '%' : '직접 입력'}
@@ -971,21 +973,21 @@ const LEGAL_VL = {
 };
 
 // ── 리포트 뷰 ──
-function ReportView({ entries, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto }) {
+function ReportView({ entries, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes }) {
   return (
     <div>
       {entries.map((e, i) => (
         <ReportCard key={e.id} e={e} i={i}
           reportTitle={reportTitle} reportDate={reportDate}
           bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc}
-          upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} />
+          upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes} />
       ))}
     </div>
   );
 }
 
 // ── 개별 건물 리포트 카드 ──
-function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto }) {
+function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes }) {
   const it      = e.res;
   const mg      = mergeEntry(e);
   const an      = e.analysis  || {};
@@ -1031,7 +1033,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
   const dep  = parseFloat(ic.deposit     || 0);
   const mRnt = parseFloat(ic.monthlyRent || 0);
   const mFee = parseFloat(ic.mgmtFee     || 0);
-  const lnM  = parseFloat(ic.loanAmt     || 0) * 10000;
+  const lnM  = parseFloat(ic.loanAmt     || 0);  // 만원 단위 직접 입력
   const lnR  = parseFloat(ic.loanRate    || 0);
   const acR  = parseFloat(ic.acquiTax    || 0);
   const tyR  = parseFloat(ic.targetYield || 0);
@@ -1094,10 +1096,10 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
       <div style={{padding:'16px 20px'}}>
 
         {/* ── 사진 + 기본정보 + 지도 ── */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px',marginBottom:'14px'}}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px',marginBottom:'14px',overflow:'hidden'}}>
 
           {/* 사진 */}
-          <div>
+          <div style={{overflow:'hidden',minWidth:0}}>
             {hd('📷 건물 사진')}
             {/* 고정 150px 컨테이너 — 비율 무시, 항상 동일 인쇄 영역 */}
             <div style={{height:'150px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',marginBottom:'4px',position:'relative'}}>
@@ -1136,7 +1138,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           </div>
 
           {/* 기본 건물 정보 */}
-          <div>
+          <div style={{overflow:'hidden',minWidth:0}}>
             {hd('🏢 건물 기본 정보')}
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px'}}>
               <tbody>
@@ -1162,7 +1164,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           </div>
 
           {/* 지도 */}
-          <div>
+          <div style={{overflow:'hidden',minWidth:0}}>
             {hd('🗺 위치 지도')}
             {/* 지도 스크린샷 업로드 (인쇄용) */}
             {e.mapPhoto ? (
@@ -1202,7 +1204,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                     {label:'보증금 (만원)',field:'deposit'},
                     {label:'월세 (만원)',  field:'monthlyRent'},
                     {label:'관리비 (만원)',field:'mgmtFee'},
-                    {label:'대출금액 (억)',field:'loanAmt'},
+                    {label:'대출금액 (만원)',field:'loanAmt'},
                     {label:'대출금리 (%)', field:'loanRate'},
                     {label:'취득세율 (%)', field:'acquiTax'},
                   ].map(({label, field, val, readonly}) => (
@@ -1293,6 +1295,26 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           {extraArea !== null && extraArea <= 0 && (
             <div style={{background:'#fff5f4',padding:'8px 12px',border:'1px solid #e8b4b0',fontSize:'11px',color:'#c0392b'}}>
               현재 연면적이 법정 최대에 근접 — 신축 시 용적률 범위 내 계획 필요
+            </div>
+          )}
+        </div>
+
+        {/* ── 추가 설명 ── */}
+        <div style={{marginTop:'10px'}}>
+          {hd('📝 추가 설명')}
+          <textarea className="no-print" rows={5}
+            placeholder={'한 줄씩 입력하세요. 인쇄 시 각 줄 앞에 • 가 자동으로 붙습니다.\n예) 주차 10대 가능\n예) 엘리베이터 1대'}
+            value={e.notes||''}
+            onChange={ev => upNotes(e.id, ev.target.value)}
+            style={{width:'100%',fontSize:'12px',padding:'8px 10px',border:'1px solid #e0dcd4',resize:'vertical',lineHeight:1.7,fontFamily:"'Noto Sans KR',sans-serif",boxSizing:'border-box'}} />
+          {e.notes && (
+            <div className="print-only" style={{fontSize:'11px',color:'#1a1a2e',lineHeight:1.8,padding:'6px 0'}}>
+              {e.notes.split('\n').filter(l => l.trim()).map((line, idx) => (
+                <div key={idx} style={{display:'flex',gap:'6px',marginBottom:'2px'}}>
+                  <span style={{color:'#c9a84c',fontWeight:700,flexShrink:0}}>•</span>
+                  <span>{line}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
