@@ -1,18 +1,16 @@
-// Google Gemini API — https 모듈 사용 (Node.js fetch 의존성 없음)
-// API 키: aistudio.google.com (무료)
-// Vercel 환경변수: GEMINI_API_KEY
+// Google Gemini API — 다중 모델 폴백 (무료)
+// API 키: aistudio.google.com | Vercel 환경변수: GEMINI_API_KEY
 
 const https = require('https');
 
-function post(url, body) {
+function post(host, path, body) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
-    const u    = new URL(url);
     const opts = {
-      hostname: u.hostname,
-      path:     u.pathname + u.search,
-      method:   'POST',
-      headers:  { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
+      hostname: host,
+      path: path,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
     };
     const req = https.request(opts, res => {
       let buf = '';
@@ -20,14 +18,17 @@ function post(url, body) {
       res.on('end', () => resolve({ status: res.statusCode, body: buf }));
     });
     req.on('error', reject);
-    req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')); });
+    req.setTimeout(20000, () => { req.destroy(); reject(new Error('timeout')); });
     req.write(data);
     req.end();
   });
 }
 
+// 사용 가능 모델 — 순서대로 시도
+const MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b'];
+
 module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin',  '*');
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -35,8 +36,7 @@ module.exports = async (req, res) => {
 
   const KEY = process.env.GEMINI_API_KEY;
   if (!KEY) return res.status(500).json({
-    error: 'GEMINI_API_KEY 미설정',
-    guide: 'Vercel → Settings → Environment Variables 에서 GEMINI_API_KEY 추가'
+    error: 'GEMINI_API_KEY 미설정 — Vercel Settings → Environment Variables에 추가 필요'
   });
 
   const { address, zoning, usage, platArea, totalArea, floors, useAprDay, price } = req.body || {};
@@ -59,23 +59,28 @@ module.exports = async (req, res) => {
 반드시 아래 JSON 형식만 반환하고 다른 텍스트는 절대 포함하지 마세요:
 {"traffic":"교통 분석","commercial":"상권 분석","population":"유동인구 분석","development":"개발호재 분석"}`;
 
-  const url  = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + KEY;
-  const body = {
+  const HOST = 'generativelanguage.googleapis.com';
+  const reqBody = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
   };
 
-  try {
-    const r = await post(url, body);
-    if (r.status !== 200) {
-      return res.status(500).json({ error: 'Gemini API 오류 (HTTP ' + r.status + ')', detail: r.body.slice(0, 300) });
-    }
-    const data  = JSON.parse(r.body);
-    const text  = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return res.status(500).json({ error: 'AI 응답 파싱 실패', raw: text.slice(0, 300) });
-    return res.status(200).json(JSON.parse(match[0]));
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
+  let lastError = '';
+  for (const model of MODELS) {
+    const path = '/v1beta/models/' + model + ':generateContent?key=' + KEY;
+    try {
+      const r = await post(HOST, path, reqBody);
+      if (r.status === 404) { lastError = model + ' 모델 없음'; continue; }
+      if (r.status !== 200) { lastError = model + ' HTTP ' + r.status; continue; }
+
+      const data  = JSON.parse(r.body);
+      const text  = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const match = text.match(/\{[\s\S]*\}/);
+      if (!match) { lastError = 'JSON 파싱 실패'; continue; }
+
+      return res.status(200).json({ ...JSON.parse(match[0]), _model: model });
+    } catch (e) { lastError = e.message; }
   }
+
+  return res.status(500).json({ error: '모든 모델 실패: ' + lastError });
 };
