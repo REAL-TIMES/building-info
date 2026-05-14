@@ -4,8 +4,8 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.3.1';
-// v1.0 기본 조회·비교표 | v1.1 리포트(사진·수익률·입지) | v1.2 지도·신축여력 | v1.3 AI 입지분석 | v1.3.1 Gemini 버그수정·신축여력 수기입력
+const VERSION = 'v1.3.2';
+// v1.0 기본 조회·비교표 | v1.1 리포트(사진·수익률·입지) | v1.2 지도·신축여력 | v1.3 AI 입지분석 | v1.3.1 Gemini수정·신축여력수기 | v1.3.2 사진고정비율·용도지역드롭다운·Gemini2.0·리포트제목
 
 const { useState } = React;
 
@@ -740,17 +740,38 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
                   onChange={ev => onManual(e.id, 'hhldCnt', ev.target.value)}
                   style={{width:'100%',fontSize:'12px',padding:'4px 6px',border:'1px solid ' + (m.hhldCnt ? '#c9a84c' : '#e0dcd4'),boxSizing:'border-box'}} />
               </div>
-              {/* 용도지역 — 전체 폭 */}
+              {/* 용도지역 — 드롭다운 선택 */}
               <div style={{gridColumn:'1 / -1'}}>
                 <div style={{fontSize:'10px',color:'#888',marginBottom:'2px'}}>
                   용도지역
                   {it.jiyukCdNm && !m.jiyukCdNm && <span style={{color:'#ccc',marginLeft:'4px'}}>(API: {it.jiyukCdNm})</span>}
-                  {m.jiyukCdNm && <span style={{color:'#c9a84c',marginLeft:'4px'}}>수기입력</span>}
+                  {m.jiyukCdNm && <span style={{color:'#c9a84c',marginLeft:'4px'}}>선택됨</span>}
                 </div>
-                <input type="text" value={m.jiyukCdNm||''}
-                  placeholder={it.jiyukCdNm || '예: 제2종일반주거지역'}
+                <select value={m.jiyukCdNm||''}
                   onChange={ev => onManual(e.id, 'jiyukCdNm', ev.target.value)}
-                  style={{width:'100%',fontSize:'12px',padding:'4px 6px',border:'1px solid ' + (m.jiyukCdNm ? '#c9a84c' : '#e0dcd4'),boxSizing:'border-box'}} />
+                  style={{width:'100%',fontSize:'12px',padding:'5px 6px',border:'1px solid '+(m.jiyukCdNm?'#c9a84c':'#e0dcd4'),boxSizing:'border-box',background:'white'}}>
+                  <option value=''>-- 선택 (API값 사용) --</option>
+                  <optgroup label="주거지역">
+                    {['제1종전용주거지역','제2종전용주거지역','제1종일반주거지역','제2종일반주거지역','제3종일반주거지역','준주거지역'].map(z=>(
+                      <option key={z} value={z}>{z}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="상업지역">
+                    {['중심상업지역','일반상업지역','근린상업지역','유통상업지역'].map(z=>(
+                      <option key={z} value={z}>{z}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="공업지역">
+                    {['전용공업지역','일반공업지역','준공업지역'].map(z=>(
+                      <option key={z} value={z}>{z}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="녹지지역">
+                    {['보전녹지지역','생산녹지지역','자연녹지지역'].map(z=>(
+                      <option key={z} value={z}>{z}</option>
+                    ))}
+                  </optgroup>
+                </select>
               </div>
               {/* 법정 최대 용적률 — 리포트 신축여력 계산에 사용 */}
               <div style={{gridColumn:'1 / -1'}}>
@@ -1058,17 +1079,24 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
   return (
     <div className="report-card" style={{background:'white',marginBottom:'28px'}}>
 
-      {/* 헤더 */}
-      <div style={{background:'#0d1b2a',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
+      {/* ── 보고서 제목 (고객명) — 상단 크게 표시 ── */}
+      {reportTitle && (
+        <div style={{background:'#f5f2eb',padding:'16px 20px 12px',borderBottom:'2px solid #0d1b2a',textAlign:'center'}}>
+          <div style={{fontSize:'8px',letterSpacing:'0.25em',color:'#c9a84c',marginBottom:'6px'}}>PROPERTY ANALYSIS REPORT</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'34px',fontWeight:500,color:'#0d1b2a',lineHeight:1.1,letterSpacing:'0.02em'}}>{reportTitle}</div>
+        </div>
+      )}
+
+      {/* ── 건물 정보 헤더 ── */}
+      <div style={{background:'#0d1b2a',padding:'12px 20px',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
         <div>
           <div style={{fontSize:'9px',letterSpacing:'0.15em',color:'#c9a84c',marginBottom:'3px'}}>TIMES REAL ESTATE · 건물 분석 리포트</div>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'22px',color:'white',fontWeight:400,lineHeight:1.1}}>{title}</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'20px',color:'white',fontWeight:400,lineHeight:1.1}}>{title}</div>
           {mg.jiyukCdNm && <div style={{fontSize:'10px',color:'#c9a84c',marginTop:'3px'}}>{mg.jiyukCdNm}</div>}
           <div style={{fontSize:'10px',color:'#aaa',marginTop:'2px'}}>{it.platPlc}</div>
         </div>
         <div style={{textAlign:'right',fontSize:'10px',color:'#888'}}>
-          <div>{reportDate}</div>
-          {reportTitle && <div style={{color:'#c9a84c'}}>{reportTitle}</div>}
+          <div style={{color:'#c9a84c',fontWeight:500}}>{reportDate}</div>
         </div>
       </div>
 
@@ -1080,29 +1108,36 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           {/* 사진 */}
           <div>
             {hd('📷 건물 사진')}
-            {photos.length > 0 ? (
-              <div style={{display:'grid',gridTemplateColumns:photos.length===1?'1fr':'1fr 1fr',gap:'3px'}}>
-                {photos.map((src, idx) => (
-                  <div key={idx} style={{position:'relative'}}>
-                    <img src={src} style={{width:'100%',height:'95px',objectFit:'cover',display:'block'}} />
-                    <button className="screen-only" onClick={() => rmPhoto(e.id, idx)}
-                      style={{position:'absolute',top:'2px',right:'2px',background:'rgba(0,0,0,0.5)',color:'white',border:'none',cursor:'pointer',fontSize:'11px',padding:'1px 5px',lineHeight:1}}>×</button>
-                  </div>
-                ))}
-                {photos.length < 3 && (
-                  <label className="screen-only" style={{height:'95px',border:'2px dashed #e0dcd4',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',background:'#fafaf8',fontSize:'10px',color:'#aaa'}}>
-                    + 추가<input type="file" accept="image/*" style={{display:'none'}} onChange={ev => { const f=ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev2=>addPhoto(e.id,ev2.target.result); r.readAsDataURL(f); }} />
+            {/* 고정 높이 컨테이너 — 사진 비율과 관계없이 항상 동일 인쇄 영역 */}
+            <div style={{height:'150px',overflow:'hidden',position:'relative',background:'#f5f2eb'}}>
+              {photos.length > 0 ? (
+                <div style={{display:'grid',gridTemplateColumns:photos.length===1?'1fr':photos.length===2?'1fr 1fr':'1fr 1fr',gridTemplateRows:photos.length===3?'1fr 1fr':'1fr',gap:'2px',height:'100%'}}>
+                  {photos.map((src, idx) => (
+                    <div key={idx} style={{position:'relative',overflow:'hidden',gridRow:photos.length===3&&idx===0?'1/3':'auto'}}>
+                      <img src={src} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
+                      <button className="screen-only" onClick={() => rmPhoto(e.id, idx)}
+                        style={{position:'absolute',top:'2px',right:'2px',background:'rgba(0,0,0,0.55)',color:'white',border:'none',cursor:'pointer',fontSize:'11px',padding:'1px 5px',lineHeight:1}}>×</button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <label className="screen-only" style={{width:'100%',height:'100%',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',gap:'6px',position:'absolute',inset:0}}>
+                    <span style={{fontSize:'22px'}}>📷</span>
+                    <span style={{fontSize:'10px',color:'#aaa'}}>사진 업로드 (최대 3장)</span>
+                    <input type="file" accept="image/*" multiple style={{display:'none'}} onChange={ev => { Array.from(ev.target.files).slice(0,3-photos.length).forEach(f=>{ const r=new FileReader(); r.onload=ev2=>addPhoto(e.id,ev2.target.result); r.readAsDataURL(f); }); }} />
                   </label>
-                )}
-              </div>
-            ) : (
-              <label className="screen-only" style={{height:'130px',border:'2px dashed #e0dcd4',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',background:'#fafaf8',gap:'6px'}}>
-                <span style={{fontSize:'22px'}}>📷</span>
-                <span style={{fontSize:'10px',color:'#aaa'}}>사진 업로드 (최대 3장)</span>
-                <input type="file" accept="image/*" multiple style={{display:'none'}} onChange={ev => { Array.from(ev.target.files).slice(0,3-photos.length).forEach(f=>{ const r=new FileReader(); r.onload=ev2=>addPhoto(e.id,ev2.target.result); r.readAsDataURL(f); }); }} />
+                  <div className="print-only" style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px',position:'absolute',inset:0,border:'1px solid #e0dcd4'}}>사진 없음</div>
+                </>
+              )}
+            </div>
+            {/* 사진 추가 버튼 (사진 있을 때) */}
+            {photos.length > 0 && photos.length < 3 && (
+              <label className="screen-only" style={{display:'block',marginTop:'3px',fontSize:'10px',color:'#888',cursor:'pointer',padding:'3px 8px',border:'1px dashed #e0dcd4',textAlign:'center',background:'#fafaf8'}}>
+                + 사진 추가 ({photos.length}/3)
+                <input type="file" accept="image/*" style={{display:'none'}} onChange={ev => { const f=ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev2=>addPhoto(e.id,ev2.target.result); r.readAsDataURL(f); }} />
               </label>
             )}
-            {photos.length===0 && <div className="print-only" style={{height:'130px',border:'1px solid #e0dcd4',display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px'}}>사진 없음</div>}
           </div>
 
           {/* 기본 건물 정보 */}
@@ -1147,11 +1182,11 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
             )}
             {/* 지도 스크린샷 업로드 (인쇄용) */}
             {e.mapPhoto ? (
-              <div style={{position:'relative'}}>
-                <img src={e.mapPhoto} style={{width:'100%',height:'150px',objectFit:'cover',border:'1px solid #e0dcd4',display:'block'}} />
+              <div style={{position:'relative',height:'150px',overflow:'hidden'}}>
+                <img src={e.mapPhoto} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
                 <button className="screen-only" onClick={() => setMapPhoto(e.id, null)}
                   style={{position:'absolute',top:'3px',right:'3px',background:'rgba(0,0,0,0.5)',color:'white',border:'none',cursor:'pointer',fontSize:'11px',padding:'2px 6px'}}>×</button>
-                <span className="screen-only" style={{fontSize:'9px',color:'#aaa',display:'block',marginTop:'2px'}}>✓ 인쇄용 지도 등록됨</span>
+                <span className="screen-only" style={{position:'absolute',bottom:'3px',left:'3px',fontSize:'9px',color:'white',background:'rgba(0,0,0,0.45)',padding:'1px 5px'}}>✓ 인쇄용 지도</span>
               </div>
             ) : (
               <>
