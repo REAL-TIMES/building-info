@@ -4,8 +4,8 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.3.0';
-// v1.0 기본 조회·비교표 | v1.1 리포트(사진·수익률·입지) | v1.2 지도·신축여력 | v1.3 AI 입지분석
+const VERSION = 'v1.3.1';
+// v1.0 기본 조회·비교표 | v1.1 리포트(사진·수익률·입지) | v1.2 지도·신축여력 | v1.3 AI 입지분석 | v1.3.1 Gemini 버그수정·신축여력 수기입력
 
 const { useState } = React;
 
@@ -752,6 +752,18 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
                   onChange={ev => onManual(e.id, 'jiyukCdNm', ev.target.value)}
                   style={{width:'100%',fontSize:'12px',padding:'4px 6px',border:'1px solid ' + (m.jiyukCdNm ? '#c9a84c' : '#e0dcd4'),boxSizing:'border-box'}} />
               </div>
+              {/* 법정 최대 용적률 — 리포트 신축여력 계산에 사용 */}
+              <div style={{gridColumn:'1 / -1'}}>
+                <div style={{fontSize:'10px',color:'#888',marginBottom:'2px'}}>
+                  법정 최대 용적률 (%)
+                  <span style={{color:'#aaa',marginLeft:'4px',fontSize:'9px'}}>리포트 신축여력 계산에 사용</span>
+                  {m.maxVlRat && <span style={{color:'#c9a84c',marginLeft:'4px'}}>수기입력</span>}
+                </div>
+                <input type="text" value={m.maxVlRat||''}
+                  placeholder='예: 250 (용도지역이 자동매칭 안될 때 입력)'
+                  onChange={ev => onManual(e.id, 'maxVlRat', ev.target.value)}
+                  style={{width:'100%',fontSize:'12px',padding:'4px 6px',border:'1px solid ' + (m.maxVlRat ? '#c9a84c' : '#e0dcd4'),boxSizing:'border-box'}} />
+              </div>
             </div>
           </div>
         )}
@@ -776,6 +788,7 @@ const mergeEntry = (e) => {
     vlRat:     m.vlRat     || autoVlRat || it.vlRat,
     hhldCnt:   m.hhldCnt   || it.hhldCnt,
     jiyukCdNm: m.jiyukCdNm || it.jiyukCdNm,
+    maxVlRat:  m.maxVlRat  || null,   // 법정 최대 용적률 수기 입력
   };
 };
 
@@ -1012,7 +1025,11 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
   // ── 신축여력 계산 ──
   const platA   = mg.platArea ? parseFloat(mg.platArea) : 0;
   const zoning  = mg.jiyukCdNm || '';
-  const legalVl = LEGAL_VL[zoning] || 0;
+  // 용도지역 문자열 정규화 (공백·띄어쓰기 제거 후 매칭)
+  const zoningKey = zoning.replace(/\s/g, '');
+  const legalVlFromTable = Object.entries(LEGAL_VL).find(([k]) => k.replace(/\s/g,'') === zoningKey)?.[1] || 0;
+  // 수기 입력 maxVlRat 우선 적용
+  const legalVl = mg.maxVlRat ? parseFloat(mg.maxVlRat) : legalVlFromTable;
   const maxArea = platA && legalVl ? +(platA * legalVl / 100).toFixed(1) : null;
   const currArea = mg.totArea ? +parseFloat(mg.totArea).toFixed(1) : null;
   const extraArea = (maxArea && currArea) ? +(maxArea - currArea).toFixed(1) : null;
