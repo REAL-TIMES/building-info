@@ -959,7 +959,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
   const legalVl   = LEGAL_VL[zoning] || 0;
   const maxArea   = platA && legalVl ? (platA * legalVl / 100).toFixed(1) : null;
   const currArea  = mg.totArea  ? parseFloat(mg.totArea).toFixed(1)  : null;
-  const余力       = (maxArea && currArea) ? (parseFloat(maxArea) - parseFloat(currArea)).toFixed(1) : null;
+  const extraArea       = (maxArea && currArea) ? (parseFloat(maxArea) - parseFloat(currArea)).toFixed(1) : null;
 
   // 입력 스타일
   const iSt = { fontSize:'12px', padding:'6px 8px', border:'1px solid #e0dcd4', width:'100%', boxSizing:'border-box', resize:'vertical', fontFamily:"'Noto Sans KR',sans-serif", lineHeight:1.6 };
@@ -1176,13 +1176,13 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                 </div>
               ))}
             </div>
-            {余力 && parseFloat(余力) > 0 && (
+            {extraArea && parseFloat(extraArea) > 0 && (
               <div style={{marginTop:'8px', background:'#f0fff4', padding:'8px 12px', border:'1px solid #a8d5b0', fontSize:'11px'}}>
-                <span style={{color:'#2e7d32', fontWeight:700}}>증축 여력: {(parseFloat(余力)/PY).toFixed(1)}평 ({余力}㎡)</span>
-                <span style={{color:'#666', marginLeft:'8px', fontSize:'10px'}}>현재 연면적 대비 {currArea ? ((parseFloat(余力)/parseFloat(currArea))*100).toFixed(0)+'% 추가 가능' : ''}</span>
+                <span style={{color:'#2e7d32', fontWeight:700}}>증축 여력: {(parseFloat(extraArea)/PY).toFixed(1)}평 ({extraArea}㎡)</span>
+                <span style={{color:'#666', marginLeft:'8px', fontSize:'10px'}}>현재 연면적 대비 {currArea ? ((parseFloat(extraArea)/parseFloat(currArea))*100).toFixed(0)+'% 추가 가능' : ''}</span>
               </div>
             )}
-            {余力 && parseFloat(余力) <= 0 && (
+            {extraArea && parseFloat(extraArea) <= 0 && (
               <div style={{marginTop:'8px', background:'#fff5f4', padding:'8px 12px', border:'1px solid #e8b4b0', fontSize:'11px', color:'#c0392b'}}>
                 현재 연면적이 법정 최대에 근접 — 신축 시 용적률 범위 내 계획 필요
               </div>
