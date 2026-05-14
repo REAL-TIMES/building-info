@@ -1,9 +1,33 @@
-// Google Gemini API 연동 — 무료 티어 사용
-// API 키 발급: https://aistudio.google.com/app/apikey (무료, 신용카드 불필요)
+// Google Gemini API — https 모듈 사용 (Node.js fetch 의존성 없음)
+// API 키: aistudio.google.com (무료)
 // Vercel 환경변수: GEMINI_API_KEY
 
+const https = require('https');
+
+function post(url, body) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const u    = new URL(url);
+    const opts = {
+      hostname: u.hostname,
+      path:     u.pathname + u.search,
+      method:   'POST',
+      headers:  { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
+    };
+    const req = https.request(opts, res => {
+      let buf = '';
+      res.on('data', c => { buf += c; });
+      res.on('end', () => resolve({ status: res.statusCode, body: buf }));
+    });
+    req.on('error', reject);
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')); });
+    req.write(data);
+    req.end();
+  });
+}
+
 module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin',  '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -12,12 +36,13 @@ module.exports = async (req, res) => {
   const KEY = process.env.GEMINI_API_KEY;
   if (!KEY) return res.status(500).json({
     error: 'GEMINI_API_KEY 미설정',
-    guide: 'aistudio.google.com에서 무료 API 키 발급 후 Vercel 환경변수에 추가하세요'
+    guide: 'Vercel → Settings → Environment Variables 에서 GEMINI_API_KEY 추가'
   });
 
   const { address, zoning, usage, platArea, totalArea, floors, useAprDay, price } = req.body || {};
 
-  const prompt = `당신은 서울·수도권 고급 부동산 전문 중개인입니다.
+  const prompt =
+`당신은 서울·수도권 고급 부동산 전문 중개인입니다.
 아래 건물 정보를 바탕으로 투자자에게 제시할 입지 분석 보고서를 작성해주세요.
 
 【건물 정보】
@@ -34,35 +59,22 @@ module.exports = async (req, res) => {
 반드시 아래 JSON 형식만 반환하고 다른 텍스트는 절대 포함하지 마세요:
 {"traffic":"교통 분석","commercial":"상권 분석","population":"유동인구 분석","development":"개발호재 분석"}`;
 
+  const url  = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + KEY;
+  const body = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
+  };
+
   try {
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + KEY;
-
-    const aiRes = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 1000,
-        }
-      })
-    });
-
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      return res.status(500).json({ error: 'Gemini API 오류', detail: errText.slice(0, 300) });
+    const r = await post(url, body);
+    if (r.status !== 200) {
+      return res.status(500).json({ error: 'Gemini API 오류 (HTTP ' + r.status + ')', detail: r.body.slice(0, 300) });
     }
-
-    const data   = await aiRes.json();
-    const text   = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const match  = text.match(/\{[\s\S]*\}/);
-
+    const data  = JSON.parse(r.body);
+    const text  = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const match = text.match(/\{[\s\S]*\}/);
     if (!match) return res.status(500).json({ error: 'AI 응답 파싱 실패', raw: text.slice(0, 300) });
-
-    const result = JSON.parse(match[0]);
-    return res.status(200).json(result);
-
+    return res.status(200).json(JSON.parse(match[0]));
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
