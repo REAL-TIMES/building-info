@@ -107,7 +107,9 @@ const mk = id => ({
   price:'',
   printSel:true,
   manual:{},
-  photos:[],  // base64 사진 배열 (최대 3장)
+  photos:[],
+  mapPhoto:null,    // 지도 스크린샷 (base64)
+  mapCoords:null,   // {lat, lon} 자동 지오코딩 결과
   analysis:{ traffic:'', commercial:'', population:'', development:'' },
   income:{ deposit:'', monthlyRent:'', mgmtFee:'', loanAmt:'', loanRate:'5.0', acquiTax:'4.6', targetYield:'' }
 });
@@ -139,9 +141,26 @@ function App() {
   const upIncome    = (id, field, val) => setE(p => p.map(e => e.id === id ? {...e, income:{...(e.income||{}), [field]:val}} : e));
   const addPhoto    = (id, src) => setE(p => p.map(e => e.id === id ? {...e, photos:[...(e.photos||[]),src].slice(0,3)} : e));
   const rmPhoto     = (id, idx) => setE(p => p.map(e => e.id === id ? {...e, photos:(e.photos||[]).filter((_,i)=>i!==idx)} : e));
+  const setMapPhoto = (id, src) => setE(p => p.map(e => e.id === id ? {...e, mapPhoto:src} : e));
   const add         = ()      => setE(p => [...p, mk(_id++)]);
   const rm          = id      => setE(p => p.filter(e => e.id !== id));
   const togglePrint = id      => setE(p => p.map(e => e.id === id ? {...e, printSel:!e.printSel} : e));
+
+  // 주소 → 좌표 자동 지오코딩 (Nominatim)
+  const geocode = async (id, addr) => {
+    if (!addr) return;
+    try {
+      const res = await fetch(
+        'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(addr) +
+        '&format=json&limit=1&countrycodes=kr',
+        { headers: { 'Accept': 'application/json', 'Accept-Language': 'ko' } }
+      );
+      const data = await res.json();
+      if (data && data[0]) {
+        up(id, { mapCoords: { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) } });
+      }
+    } catch(e) { /* 지오코딩 실패 — 사용자가 수동 설정 */ }
+  };
 
   const go = async ent => {
     up(ent.id, { ld:true, err:null });
@@ -178,6 +197,8 @@ function App() {
 
       const main = itemArr.find(i => i.mainAtchGbCd === '0') || itemArr[0];
       up(ent.id, { ld:false, res:main });
+      // 지오코딩 — 비동기로 좌표 자동 획득
+      geocode(ent.id, main.newPlatPlc || main.platPlc);
     } catch(e) {
       up(ent.id, { ld:false, err: e.message });
     }
@@ -313,7 +334,7 @@ function App() {
           </>
         )}
         {hasR && vw==='table'  && <CmpT entries={rE} togglePrint={togglePrint} printMode={printMode} reportTitle={reportTitle} reportDate={reportDate} totalSel={rE.filter(e=>e.printSel).length} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />}
-        {hasR && vw==='report' && <ReportView entries={rE} reportTitle={reportTitle} reportDate={reportDate} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} />}
+        {hasR && vw==='report' && <ReportView entries={rE} reportTitle={reportTitle} reportDate={reportDate} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} />}
       </main>
 
       {/* ── 출력 정보 설정 패널 (화면 전용) ── */}
@@ -910,74 +931,87 @@ const LEGAL_VL = {
 };
 
 // ── 리포트 뷰 ──
-function ReportView({ entries, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto }) {
+function ReportView({ entries, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto }) {
   return (
     <div>
       {entries.map((e, i) => (
         <ReportCard key={e.id} e={e} i={i}
           reportTitle={reportTitle} reportDate={reportDate}
           bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc}
-          upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} />
+          upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} />
       ))}
     </div>
   );
 }
 
 // ── 개별 건물 리포트 카드 ──
-function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto }) {
-  const it     = e.res;
-  const mg     = mergeEntry(e);
-  const an     = e.analysis || {};
-  const ic     = e.income   || {};
-  const photos = e.photos   || [];
-  const title  = e.alias || it.bldNm || it.platPlc;
+function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto }) {
+  const it      = e.res;
+  const mg      = mergeEntry(e);
+  const an      = e.analysis  || {};
+  const ic      = e.income    || {};
+  const photos  = e.photos    || [];
+  const coords  = e.mapCoords;   // {lat, lon}
+  const title   = e.alias || it.bldNm || it.platPlc;
 
   // ── 수익률 계산 ──
-  const prM  = parseFloat(e.price  || 0) * 10000; // 매매가 만원
-  const dep  = parseFloat(ic.deposit      || 0);  // 보증금 만원
-  const mRnt = parseFloat(ic.monthlyRent  || 0);  // 월세 만원
-  const mFee = parseFloat(ic.mgmtFee      || 0);  // 관리비 만원
-  const lnM  = parseFloat(ic.loanAmt      || 0) * 10000; // 대출 만원
-  const lnR  = parseFloat(ic.loanRate     || 0);  // 금리 %
-  const acR  = parseFloat(ic.acquiTax     || 0);  // 취득세율 %
-  const tyR  = parseFloat(ic.targetYield  || 0);  // 목표수익률 %
-
-  const annInc   = (mRnt + mFee) * 12;            // 연간 임대수입
-  const annInt   = lnM * lnR / 100;               // 연간 이자
-  const annNet   = annInc - annInt;               // 연간 순수익
-  const acqAmt   = prM * acR / 100;               // 취득세
-  const realInv  = prM - dep - lnM + acqAmt;      // 실투자금
-  const yldRate  = realInv > 0 ? (annNet / realInv * 100) : 0;
-  // 역산
-  const neededNet = realInv * tyR / 100;
-  const neededMon = tyR > 0 ? (neededNet + annInt) / 12 : 0;
+  const prM  = parseFloat(e.price  || 0) * 10000;
+  const dep  = parseFloat(ic.deposit     || 0);
+  const mRnt = parseFloat(ic.monthlyRent || 0);
+  const mFee = parseFloat(ic.mgmtFee     || 0);
+  const lnM  = parseFloat(ic.loanAmt     || 0) * 10000;
+  const lnR  = parseFloat(ic.loanRate    || 0);
+  const acR  = parseFloat(ic.acquiTax    || 0);
+  const tyR  = parseFloat(ic.targetYield || 0);
+  const annInc  = (mRnt + mFee) * 12;
+  const annInt  = lnM * lnR / 100;
+  const annNet  = annInc - annInt;
+  const acqAmt  = prM * acR / 100;
+  const realInv = prM - dep - lnM + acqAmt;
+  const yldRate = realInv > 0 ? (annNet / realInv * 100) : 0;
+  const neededMon = tyR > 0 ? (realInv * tyR / 100 + annInt) / 12 : 0;
 
   // ── 신축여력 계산 ──
-  const platA     = mg.platArea ? parseFloat(mg.platArea) : 0;
-  const currVl    = mg.vlRat    ? parseFloat(mg.vlRat)    : 0;
-  const zoning    = mg.jiyukCdNm || '';
-  const legalVl   = LEGAL_VL[zoning] || 0;
-  const maxArea   = platA && legalVl ? (platA * legalVl / 100).toFixed(1) : null;
-  const currArea  = mg.totArea  ? parseFloat(mg.totArea).toFixed(1)  : null;
-  const extraArea       = (maxArea && currArea) ? (parseFloat(maxArea) - parseFloat(currArea)).toFixed(1) : null;
+  const platA   = mg.platArea ? parseFloat(mg.platArea) : 0;
+  const zoning  = mg.jiyukCdNm || '';
+  const legalVl = LEGAL_VL[zoning] || 0;
+  const maxArea = platA && legalVl ? +(platA * legalVl / 100).toFixed(1) : null;
+  const currArea = mg.totArea ? +parseFloat(mg.totArea).toFixed(1) : null;
+  const extraArea = (maxArea && currArea) ? +(maxArea - currArea).toFixed(1) : null;
+  // 건물 노후도
+  const useDay = mg.useAprDay ? String(mg.useAprDay).slice(0,4) : null;
+  const bldAge = useDay ? (new Date().getFullYear() - parseInt(useDay)) : null;
+  const ageLabel = bldAge
+    ? bldAge >= 40 ? '🔴 고령 건물 ('+bldAge+'년) — 신축 적극 검토'
+    : bldAge >= 30 ? '🟡 노후 건물 ('+bldAge+'년) — 신축 검토 가능'
+    : '🟢 준공 '+bldAge+'년 — 양호' : null;
 
-  // 입력 스타일
-  const iSt = { fontSize:'12px', padding:'6px 8px', border:'1px solid #e0dcd4', width:'100%', boxSizing:'border-box', resize:'vertical', fontFamily:"'Noto Sans KR',sans-serif", lineHeight:1.6 };
+  // 지도 URL
+  const mapIframeUrl = coords
+    ? 'https://www.openstreetmap.org/export/embed.html?bbox='
+      + (coords.lon-0.003)+','+(coords.lat-0.002)+','+(coords.lon+0.003)+','+(coords.lat+0.002)
+      + '&layer=mapnik&marker='+coords.lat+','+coords.lon
+    : null;
+  const naverMapUrl = 'https://map.naver.com/v5/search/' + encodeURIComponent(it.platPlc||'');
+  const kakaoMapUrl = 'https://map.kakao.com/?q=' + encodeURIComponent(it.platPlc||'');
+
+  const iSt  = { fontSize:'12px', padding:'6px 8px', border:'1px solid #e0dcd4', width:'100%', boxSizing:'border-box', resize:'vertical', fontFamily:"'Noto Sans KR',sans-serif", lineHeight:1.6 };
   const numSt = { fontSize:'12px', padding:'5px 8px', border:'1px solid #e0dcd4', width:'100%', boxSizing:'border-box', textAlign:'right' };
-  const fmt = v => v > 0 ? Math.round(v).toLocaleString() : '—';
+  const fmt  = v => v > 0 ? Math.round(v).toLocaleString() : '—';
+  const hd   = (label) => (<div style={{fontSize:'11px',fontWeight:600,color:'#0d1b2a',marginBottom:'6px',letterSpacing:'0.05em',borderBottom:'1px solid #e0dcd4',paddingBottom:'4px'}}>{label}</div>);
 
   return (
-    <div className="report-card" style={{background:'white', marginBottom:'24px', padding:'0'}}>
+    <div className="report-card" style={{background:'white',marginBottom:'28px'}}>
 
-      {/* ── 리포트 헤더 ── */}
-      <div style={{background:'#0d1b2a', padding:'14px 20px', display:'flex', justifyContent:'space-between', alignItems:'flex-end'}}>
+      {/* 헤더 */}
+      <div style={{background:'#0d1b2a',padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
         <div>
-          <div style={{fontSize:'9px', letterSpacing:'0.15em', color:'#c9a84c', marginBottom:'3px'}}>TIMES REAL ESTATE · 건물 분석 리포트</div>
-          <div style={{fontFamily:"'Cormorant Garamond',serif", fontSize:'22px', color:'white', fontWeight:400, lineHeight:1.1}}>{title}</div>
-          {(mg.jiyukCdNm) && <div style={{fontSize:'10px', color:'#c9a84c', marginTop:'3px'}}>{mg.jiyukCdNm}</div>}
-          <div style={{fontSize:'10px', color:'#aaa', marginTop:'2px'}}>{it.platPlc}</div>
+          <div style={{fontSize:'9px',letterSpacing:'0.15em',color:'#c9a84c',marginBottom:'3px'}}>TIMES REAL ESTATE · 건물 분석 리포트</div>
+          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'22px',color:'white',fontWeight:400,lineHeight:1.1}}>{title}</div>
+          {mg.jiyukCdNm && <div style={{fontSize:'10px',color:'#c9a84c',marginTop:'3px'}}>{mg.jiyukCdNm}</div>}
+          <div style={{fontSize:'10px',color:'#aaa',marginTop:'2px'}}>{it.platPlc}</div>
         </div>
-        <div style={{textAlign:'right', fontSize:'10px', color:'#888'}}>
+        <div style={{textAlign:'right',fontSize:'10px',color:'#888'}}>
           <div>{reportDate}</div>
           {reportTitle && <div style={{color:'#c9a84c'}}>{reportTitle}</div>}
         </div>
@@ -985,92 +1019,117 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
 
       <div style={{padding:'16px 20px'}}>
 
-        {/* ── 사진 + 기본정보 ── */}
-        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px', marginBottom:'14px'}}>
+        {/* ── 사진 + 기본정보 + 지도 ── */}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px',marginBottom:'14px'}}>
 
-          {/* 사진 영역 */}
+          {/* 사진 */}
           <div>
-            <div style={{fontSize:'11px', fontWeight:600, color:'#0d1b2a', marginBottom:'6px', letterSpacing:'0.05em'}}>📷 건물 사진</div>
+            {hd('📷 건물 사진')}
             {photos.length > 0 ? (
-              <div style={{display:'grid', gridTemplateColumns: photos.length === 1 ? '1fr' : '1fr 1fr', gap:'4px'}}>
+              <div style={{display:'grid',gridTemplateColumns:photos.length===1?'1fr':'1fr 1fr',gap:'3px'}}>
                 {photos.map((src, idx) => (
                   <div key={idx} style={{position:'relative'}}>
-                    <img src={src} style={{width:'100%', height:'110px', objectFit:'cover', display:'block'}} />
+                    <img src={src} style={{width:'100%',height:'95px',objectFit:'cover',display:'block'}} />
                     <button className="screen-only" onClick={() => rmPhoto(e.id, idx)}
-                      style={{position:'absolute', top:'3px', right:'3px', background:'rgba(0,0,0,0.5)', color:'white', border:'none', cursor:'pointer', fontSize:'12px', padding:'2px 5px', lineHeight:1}}>×</button>
+                      style={{position:'absolute',top:'2px',right:'2px',background:'rgba(0,0,0,0.5)',color:'white',border:'none',cursor:'pointer',fontSize:'11px',padding:'1px 5px',lineHeight:1}}>×</button>
                   </div>
                 ))}
                 {photos.length < 3 && (
-                  <label className="screen-only" style={{height:'110px', border:'2px dashed #e0dcd4', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', background:'#fafaf8', fontSize:'11px', color:'#aaa'}}>
-                    + 사진 추가
-                    <input type="file" accept="image/*" style={{display:'none'}} onChange={ev => {
-                      const f = ev.target.files[0]; if(!f) return;
-                      const r = new FileReader();
-                      r.onload = ev2 => addPhoto(e.id, ev2.target.result);
-                      r.readAsDataURL(f);
-                    }} />
+                  <label className="screen-only" style={{height:'95px',border:'2px dashed #e0dcd4',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',background:'#fafaf8',fontSize:'10px',color:'#aaa'}}>
+                    + 추가<input type="file" accept="image/*" style={{display:'none'}} onChange={ev => { const f=ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev2=>addPhoto(e.id,ev2.target.result); r.readAsDataURL(f); }} />
                   </label>
                 )}
               </div>
             ) : (
-              <label className="screen-only" style={{height:'140px', border:'2px dashed #e0dcd4', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:'pointer', background:'#fafaf8', gap:'8px'}}>
-                <span style={{fontSize:'24px'}}>📷</span>
-                <span style={{fontSize:'11px', color:'#aaa'}}>사진 업로드 (최대 3장)</span>
-                <input type="file" accept="image/*" multiple style={{display:'none'}} onChange={ev => {
-                  Array.from(ev.target.files).slice(0, 3 - photos.length).forEach(f => {
-                    const r = new FileReader();
-                    r.onload = ev2 => addPhoto(e.id, ev2.target.result);
-                    r.readAsDataURL(f);
-                  });
-                }} />
+              <label className="screen-only" style={{height:'130px',border:'2px dashed #e0dcd4',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',background:'#fafaf8',gap:'6px'}}>
+                <span style={{fontSize:'22px'}}>📷</span>
+                <span style={{fontSize:'10px',color:'#aaa'}}>사진 업로드 (최대 3장)</span>
+                <input type="file" accept="image/*" multiple style={{display:'none'}} onChange={ev => { Array.from(ev.target.files).slice(0,3-photos.length).forEach(f=>{ const r=new FileReader(); r.onload=ev2=>addPhoto(e.id,ev2.target.result); r.readAsDataURL(f); }); }} />
               </label>
             )}
-            {photos.length === 0 && <div className="print-only" style={{height:'140px', border:'1px solid #e0dcd4', display:'flex', alignItems:'center', justifyContent:'center', color:'#ccc', fontSize:'11px'}}>사진 없음</div>}
+            {photos.length===0 && <div className="print-only" style={{height:'130px',border:'1px solid #e0dcd4',display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px'}}>사진 없음</div>}
           </div>
 
           {/* 기본 건물 정보 */}
           <div>
-            <div style={{fontSize:'11px', fontWeight:600, color:'#0d1b2a', marginBottom:'6px', letterSpacing:'0.05em'}}>🏢 건물 기본 정보</div>
-            <table style={{width:'100%', borderCollapse:'collapse', fontSize:'11px'}}>
+            {hd('🏢 건물 기본 정보')}
+            <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px'}}>
               <tbody>
                 {[
-                  ['주용도',   [mg.mainPurpsCdNm, mg.etcPurps].filter(Boolean).join('/') || '—'],
-                  ['주구조',   mg.strctCdNm || mg.mainStrctCdNm || '—'],
-                  ['대지면적', mg.platArea && parseFloat(mg.platArea)>0 ? py(mg.platArea)+'평 ('+parseFloat(mg.platArea).toFixed(1)+'㎡)' : '—'],
-                  ['연면적',   mg.totArea   && parseFloat(mg.totArea)>0  ? py(mg.totArea)+'평 ('+parseFloat(mg.totArea).toFixed(1)+'㎡)'  : '—'],
+                  ['주용도',   [mg.mainPurpsCdNm,mg.etcPurps].filter(Boolean).join('/')||'—'],
+                  ['주구조',   mg.strctCdNm||mg.mainStrctCdNm||'—'],
+                  ['대지면적', platA>0 ? py(mg.platArea)+'평 ('+parseFloat(mg.platArea).toFixed(1)+'㎡)' : '—'],
+                  ['연면적',   mg.totArea&&parseFloat(mg.totArea)>0 ? py(mg.totArea)+'평 ('+parseFloat(mg.totArea).toFixed(1)+'㎡)' : '—'],
                   ['건폐율',   pct(mg.bcRat)],
                   ['용적률',   pct(mg.vlRat)],
-                  ['층수',     '지상 '+(mg.grndFlrCnt||0)+'층 / 지하 '+(mg.ugrndFlrCnt||0)+'층'],
+                  ['층수',     '지상'+(mg.grndFlrCnt||0)+'층/지하'+(mg.ugrndFlrCnt||0)+'층'],
                   ['세대수',   mg.hhldCnt ? parseInt(mg.hhldCnt).toLocaleString()+'세대' : '—'],
                   ['사용승인', dt(mg.useAprDay)],
                   ['매매가',   e.price ? parseFloat(e.price).toLocaleString()+'억원' : '—'],
                 ].map(([k,v]) => (
                   <tr key={k}>
-                    <td style={{padding:'3px 6px', background:'#f5f2eb', color:'#666', fontWeight:500, width:'70px', borderBottom:'1px solid #eee', whiteSpace:'nowrap'}}>{k}</td>
-                    <td style={{padding:'3px 8px', borderBottom:'1px solid #eee', color:'#1a1a2e'}}>{v}</td>
+                    <td style={{padding:'2px 5px',background:'#f5f2eb',color:'#666',fontWeight:500,width:'58px',borderBottom:'1px solid #eee',whiteSpace:'nowrap',fontSize:'10px'}}>{k}</td>
+                    <td style={{padding:'2px 6px',borderBottom:'1px solid #eee',color:'#1a1a2e',fontSize:'11px'}}>{v}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* 지도 */}
+          <div>
+            {hd('🗺 위치 지도')}
+            {/* 화면: OSM iframe 자동 표시 */}
+            {mapIframeUrl && (
+              <iframe className="screen-only" src={mapIframeUrl} width="100%" height="150"
+                style={{border:'1px solid #e0dcd4',display:'block',marginBottom:'6px'}}
+                title="건물 위치" />
+            )}
+            {!mapIframeUrl && (
+              <div className="screen-only" style={{height:'100px',border:'1px dashed #e0dcd4',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',color:'#aaa',marginBottom:'6px'}}>
+                {e.res ? '지도 좌표 로딩 중…' : '조회 후 자동 표시'}
+              </div>
+            )}
+            {/* 지도 스크린샷 업로드 (인쇄용) */}
+            {e.mapPhoto ? (
+              <div style={{position:'relative'}}>
+                <img src={e.mapPhoto} style={{width:'100%',height:'150px',objectFit:'cover',border:'1px solid #e0dcd4',display:'block'}} />
+                <button className="screen-only" onClick={() => setMapPhoto(e.id, null)}
+                  style={{position:'absolute',top:'3px',right:'3px',background:'rgba(0,0,0,0.5)',color:'white',border:'none',cursor:'pointer',fontSize:'11px',padding:'2px 6px'}}>×</button>
+                <span className="screen-only" style={{fontSize:'9px',color:'#aaa',display:'block',marginTop:'2px'}}>✓ 인쇄용 지도 등록됨</span>
+              </div>
+            ) : (
+              <>
+                <label className="screen-only" style={{display:'block',fontSize:'10px',color:'#3a6fd8',cursor:'pointer',padding:'4px 8px',border:'1px solid #b8ccff',background:'#f0f4ff',textAlign:'center',marginBottom:'4px'}}>
+                  📷 인쇄용 지도 이미지 업로드
+                  <input type="file" accept="image/*" style={{display:'none'}} onChange={ev => { const f=ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev2=>setMapPhoto(e.id,ev2.target.result); r.readAsDataURL(f); }} />
+                </label>
+                <div className="print-only" style={{height:'150px',border:'1px solid #e0dcd4',display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'10px'}}>지도 이미지 없음</div>
+              </>
+            )}
+            {/* 외부 지도 링크 */}
+            <div className="screen-only" style={{display:'flex',gap:'4px',marginTop:'4px'}}>
+              <a href={naverMapUrl} target="_blank" rel="noreferrer" style={{fontSize:'9px',padding:'2px 6px',background:'#f0fff4',color:'#2e7d32',border:'1px solid #a8d5b0',textDecoration:'none'}}>네이버지도</a>
+              <a href={kakaoMapUrl} target="_blank" rel="noreferrer" style={{fontSize:'9px',padding:'2px 6px',background:'#fff9e6',color:'#7a5c00',border:'1px solid #f0d060',textDecoration:'none'}}>카카오맵</a>
+            </div>
+          </div>
         </div>
 
         {/* ── 입지 분석 ── */}
         <div style={{marginBottom:'14px'}}>
-          <div style={{fontSize:'11px', fontWeight:600, color:'#0d1b2a', marginBottom:'8px', letterSpacing:'0.05em', borderBottom:'1px solid #e0dcd4', paddingBottom:'4px'}}>📍 입지 분석</div>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px'}}>
+          {hd('📍 입지 분석')}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
             {[
-              {key:'traffic',    label:'🚇 교통',      ph:'지하철 역명, 버스 노선, 도보 소요시간 등'},
-              {key:'commercial', label:'🏬 상권',      ph:'인근 상업시설, 백화점, 마트, 편의시설 등'},
-              {key:'population', label:'👥 유동인구',  ph:'주변 유동인구 특성, 배후수요, 직장인/주거 비율 등'},
-              {key:'development',label:'🔨 개발·호재', ph:'재개발, 재건축, 교통망 확충, 상업지 조성 계획 등'},
+              {key:'traffic',    label:'🚇 교통',      ph:'지하철·버스·도보 소요시간 등'},
+              {key:'commercial', label:'🏬 상권',      ph:'인근 상업시설, 백화점, 편의시설 등'},
+              {key:'population', label:'👥 유동인구',  ph:'배후수요, 직장인/주거 비율 등'},
+              {key:'development',label:'🔨 개발·호재', ph:'재개발, 교통망, 상업지 조성 계획 등'},
             ].map(({key, label, ph}) => (
               <div key={key}>
-                <div style={{fontSize:'10px', color:'#666', fontWeight:600, marginBottom:'3px'}}>{label}</div>
+                <div style={{fontSize:'10px',color:'#666',fontWeight:600,marginBottom:'3px'}}>{label}</div>
                 <textarea className="screen-only" rows={3} placeholder={ph}
-                  value={an[key]||''} onChange={ev => upAnalysis(e.id, key, ev.target.value)}
-                  style={iSt} />
-                <div className="print-only" style={{minHeight:'52px', padding:'5px 8px', border:'1px solid #e8e4dc', fontSize:'11px', color:'#1a1a2e', lineHeight:1.6, background:'#fafaf8', whiteSpace:'pre-wrap'}}>
+                  value={an[key]||''} onChange={ev => upAnalysis(e.id, key, ev.target.value)} style={iSt} />
+                <div className="print-only" style={{minHeight:'50px',padding:'5px 8px',border:'1px solid #e8e4dc',fontSize:'11px',color:'#1a1a2e',lineHeight:1.6,background:'#fafaf8',whiteSpace:'pre-wrap'}}>
                   {an[key] || <span style={{color:'#ccc'}}>—</span>}
                 </div>
               </div>
@@ -1080,130 +1139,144 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
 
         {/* ── 수익률 분석 ── */}
         <div style={{marginBottom:'14px'}}>
-          <div style={{fontSize:'11px', fontWeight:600, color:'#0d1b2a', marginBottom:'8px', letterSpacing:'0.05em', borderBottom:'1px solid #e0dcd4', paddingBottom:'4px'}}>💰 수익률 분석</div>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px'}}>
-
-            {/* 입력 */}
+          {hd('💰 수익률 분석')}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px'}}>
             <div>
-              <div style={{fontSize:'10px', color:'#888', marginBottom:'6px'}}>입력 조건</div>
-              <table style={{width:'100%', borderCollapse:'collapse', fontSize:'11px'}}>
+              <div style={{fontSize:'10px',color:'#888',marginBottom:'5px'}}>입력 조건</div>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px'}}>
                 <tbody>
                   {[
-                    {label:'매매가 (억원)',  field:null,           val: e.price ? parseFloat(e.price)+'억' : '—', readonly:true},
-                    {label:'보증금 (만원)',  field:'deposit',      unit:'만원'},
-                    {label:'월세 (만원)',    field:'monthlyRent',  unit:'만원'},
-                    {label:'관리비 (만원)',  field:'mgmtFee',      unit:'만원'},
-                    {label:'대출금액 (억)',  field:'loanAmt',      unit:'억원'},
-                    {label:'대출금리 (%)',   field:'loanRate',     unit:'%'},
-                    {label:'취득세율 (%)',   field:'acquiTax',     unit:'%'},
-                  ].map(({label, field, unit, val, readonly}) => (
+                    {label:'매매가',       field:null, val:e.price?parseFloat(e.price)+'억':'—', readonly:true},
+                    {label:'보증금 (만원)',field:'deposit'},
+                    {label:'월세 (만원)',  field:'monthlyRent'},
+                    {label:'관리비 (만원)',field:'mgmtFee'},
+                    {label:'대출금액 (억)',field:'loanAmt'},
+                    {label:'대출금리 (%)', field:'loanRate'},
+                    {label:'취득세율 (%)', field:'acquiTax'},
+                  ].map(({label, field, val, readonly}) => (
                     <tr key={label}>
-                      <td style={{padding:'3px 6px', background:'#f5f2eb', color:'#666', width:'110px', borderBottom:'1px solid #eee', whiteSpace:'nowrap', fontSize:'10px'}}>{label}</td>
-                      <td style={{padding:'3px 6px', borderBottom:'1px solid #eee'}}>
+                      <td style={{padding:'3px 6px',background:'#f5f2eb',color:'#666',width:'100px',borderBottom:'1px solid #eee',fontSize:'10px',whiteSpace:'nowrap'}}>{label}</td>
+                      <td style={{padding:'3px 6px',borderBottom:'1px solid #eee'}}>
                         {readonly
-                          ? <span style={{fontSize:'12px', color:'#1a1a2e'}}>{val}</span>
-                          : <input type="text" className="screen-only" value={ic[field]||''} placeholder="0"
-                              onChange={ev => upIncome(e.id, field, ev.target.value)}
-                              style={{...numSt, width:'100%', background:'white'}} />
-                        }
-                        {!readonly && <span className="print-only" style={{fontSize:'12px'}}>{ic[field] ? parseFloat(ic[field]).toLocaleString()+unit : '—'}</span>}
+                          ? <span style={{fontSize:'12px',color:'#1a1a2e'}}>{val}</span>
+                          : <>
+                              <input type="text" className="screen-only" value={ic[field]||''} placeholder="0"
+                                onChange={ev => upIncome(e.id, field, ev.target.value)} style={{...numSt,background:'white'}} />
+                              <span className="print-only" style={{fontSize:'12px'}}>{ic[field] ? parseFloat(ic[field]).toLocaleString() : '—'}</span>
+                            </>}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
-            {/* 결과 */}
             <div>
-              <div style={{fontSize:'10px', color:'#888', marginBottom:'6px'}}>분석 결과</div>
-              <table style={{width:'100%', borderCollapse:'collapse', fontSize:'11px'}}>
+              <div style={{fontSize:'10px',color:'#888',marginBottom:'5px'}}>분석 결과</div>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px',marginBottom:'10px'}}>
                 <tbody>
                   {[
-                    {label:'연간 임대수입', val: fmt(annInc),   unit:'만원', hi:false},
-                    {label:'연간 이자비용', val: fmt(annInt),   unit:'만원', hi:false},
-                    {label:'연간 순수익',   val: fmt(annNet),   unit:'만원', hi:true},
-                    {label:'취득세',        val: fmt(acqAmt),   unit:'만원', hi:false},
-                    {label:'실 투자금',     val: fmt(realInv),  unit:'만원', hi:false},
-                    {label:'수익률',        val: realInv>0 ? yldRate.toFixed(2)+'%' : '—', unit:'', hi:true},
+                    {label:'연간 임대수입', val:fmt(annInc),  unit:'만원', hi:false},
+                    {label:'연간 이자비용', val:fmt(annInt),  unit:'만원', hi:false},
+                    {label:'연간 순수익',   val:fmt(annNet),  unit:'만원', hi:true},
+                    {label:'취득세',        val:fmt(acqAmt),  unit:'만원', hi:false},
+                    {label:'실 투자금',     val:fmt(realInv), unit:'만원', hi:false},
+                    {label:'수익률',        val:realInv>0?yldRate.toFixed(2)+'%':'—', unit:'', hi:true},
                   ].map(({label, val, unit, hi}) => (
                     <tr key={label}>
-                      <td style={{padding:'3px 6px', background: hi ? '#fff3dc' : '#f5f2eb', color: hi ? '#a05800' : '#666', width:'110px', borderBottom:'1px solid #eee', whiteSpace:'nowrap', fontSize:'10px', fontWeight: hi ? 700 : 400}}>{label}</td>
-                      <td style={{padding:'3px 8px', borderBottom:'1px solid #eee', fontWeight: hi ? 700 : 400, color: hi ? '#0d1b2a' : '#333', textAlign:'right', fontSize:'12px'}}>{val}{unit && val!=='—' && <span style={{fontSize:'10px', fontWeight:400, marginLeft:'2px'}}>{unit}</span>}</td>
+                      <td style={{padding:'3px 6px',background:hi?'#fff3dc':'#f5f2eb',color:hi?'#a05800':'#666',width:'100px',borderBottom:'1px solid #eee',fontSize:'10px',fontWeight:hi?700:400,whiteSpace:'nowrap'}}>{label}</td>
+                      <td style={{padding:'3px 8px',borderBottom:'1px solid #eee',fontWeight:hi?700:400,color:hi?'#0d1b2a':'#333',textAlign:'right',fontSize:'12px'}}>{val}{unit&&val!=='—'&&<span style={{fontSize:'9px',fontWeight:400,marginLeft:'2px'}}>{unit}</span>}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-
-              {/* 역산 */}
-              <div style={{marginTop:'10px', background:'#f0f4ff', padding:'8px 10px', border:'1px solid #c0cff8'}}>
-                <div style={{fontSize:'10px', color:'#3a6fd8', fontWeight:600, marginBottom:'6px'}}>🔄 역산 — 목표수익률로 필요 임대료 계산</div>
-                <div style={{display:'flex', alignItems:'center', gap:'6px', fontSize:'11px'}}>
-                  <span style={{color:'#666', whiteSpace:'nowrap'}}>목표 수익률</span>
+              <div style={{background:'#f0f4ff',padding:'8px 10px',border:'1px solid #c0cff8'}}>
+                <div style={{fontSize:'10px',color:'#3a6fd8',fontWeight:600,marginBottom:'5px'}}>🔄 역산 — 목표수익률 → 필요 임대료</div>
+                <div style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'11px',flexWrap:'wrap'}}>
+                  <span style={{color:'#666'}}>목표</span>
                   <input type="text" className="screen-only" value={ic.targetYield||''} placeholder="예: 5"
-                    onChange={ev => upIncome(e.id, 'targetYield', ev.target.value)}
-                    style={{width:'60px', fontSize:'12px', padding:'3px 6px', border:'1px solid #b8ccff', textAlign:'right'}} />
-                  <span className="print-only" style={{fontSize:'12px', fontWeight:600}}>{ic.targetYield||'—'}</span>
+                    onChange={ev => upIncome(e.id,'targetYield',ev.target.value)}
+                    style={{width:'50px',fontSize:'12px',padding:'3px 5px',border:'1px solid #b8ccff',textAlign:'right'}} />
+                  <span className="print-only" style={{fontSize:'12px',fontWeight:600}}>{ic.targetYield||'—'}</span>
                   <span style={{color:'#666'}}>%</span>
+                  {tyR > 0 && realInv > 0 && (
+                    <span style={{color:'#0d1b2a',fontWeight:700,marginLeft:'4px'}}>
+                      → 월 {Math.round(neededMon).toLocaleString()}만원 필요
+                    </span>
+                  )}
                 </div>
-                {tyR > 0 && realInv > 0 && (
-                  <div style={{marginTop:'6px', fontSize:'12px', color:'#0d1b2a'}}>
-                    → 필요 월 임대료(관리비 포함): <strong>{Math.round(neededMon).toLocaleString()}만원</strong>
-                    {mFee > 0 && <span style={{fontSize:'10px', color:'#888', marginLeft:'4px'}}>(관리비 제외 순임대: {Math.round(neededMon-mFee).toLocaleString()}만원)</span>}
-                  </div>
-                )}
               </div>
             </div>
           </div>
         </div>
 
         {/* ── 신축·증축 여력 분석 ── */}
-        {(platA > 0 || zoning) && (
-          <div style={{marginBottom:'10px'}}>
-            <div style={{fontSize:'11px', fontWeight:600, color:'#0d1b2a', marginBottom:'8px', letterSpacing:'0.05em', borderBottom:'1px solid #e0dcd4', paddingBottom:'4px'}}>🏗 신축·증축 여력 분석</div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', fontSize:'11px'}}>
-              {[
-                {label:'용도지역',           val: zoning || '—'},
-                {label:'법정 최대 용적률',    val: legalVl ? legalVl+'%' : '확인 필요'},
-                {label:'현재 용적률',         val: pct(mg.vlRat)},
-                {label:'대지면적',            val: platA > 0 ? py(mg.platArea)+'평' : '—'},
-                {label:'현재 연면적',         val: currArea ? (parseFloat(currArea)/PY).toFixed(1)+'평' : '—'},
-                {label:'최대 건축 가능 연면적',val: maxArea ? (parseFloat(maxArea)/PY).toFixed(1)+'평' : '—'},
-              ].map(({label, val}) => (
-                <div key={label} style={{background:'#f5f2eb', padding:'7px 10px'}}>
-                  <div style={{fontSize:'9px', color:'#aaa', marginBottom:'2px'}}>{label}</div>
-                  <div style={{fontWeight:600, color:'#0d1b2a'}}>{val}</div>
-                </div>
-              ))}
-            </div>
-            {extraArea && parseFloat(extraArea) > 0 && (
-              <div style={{marginTop:'8px', background:'#f0fff4', padding:'8px 12px', border:'1px solid #a8d5b0', fontSize:'11px'}}>
-                <span style={{color:'#2e7d32', fontWeight:700}}>증축 여력: {(parseFloat(extraArea)/PY).toFixed(1)}평 ({extraArea}㎡)</span>
-                <span style={{color:'#666', marginLeft:'8px', fontSize:'10px'}}>현재 연면적 대비 {currArea ? ((parseFloat(extraArea)/parseFloat(currArea))*100).toFixed(0)+'% 추가 가능' : ''}</span>
+        <div style={{marginBottom:'10px'}}>
+          {hd('🏗 신축·증축 여력 분석')}
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'8px',fontSize:'11px'}}>
+            {[
+              {label:'용도지역',          val:zoning||'—'},
+              {label:'법정 최대 용적률',   val:legalVl?legalVl+'%':'확인 필요'},
+              {label:'현재 용적률',        val:pct(mg.vlRat)},
+              {label:'대지면적',           val:platA>0?py(mg.platArea)+'평':'—'},
+              {label:'현재 연면적',        val:currArea?(parseFloat(currArea)/PY).toFixed(1)+'평':'—'},
+              {label:'최대 건축 가능 연면적',val:maxArea?(parseFloat(maxArea)/PY).toFixed(1)+'평':'—'},
+            ].map(({label,val}) => (
+              <div key={label} style={{background:'#f5f2eb',padding:'7px 10px'}}>
+                <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>{label}</div>
+                <div style={{fontWeight:600,color:'#0d1b2a',fontSize:'12px'}}>{val}</div>
               </div>
-            )}
-            {extraArea && parseFloat(extraArea) <= 0 && (
-              <div style={{marginTop:'8px', background:'#fff5f4', padding:'8px 12px', border:'1px solid #e8b4b0', fontSize:'11px', color:'#c0392b'}}>
-                현재 연면적이 법정 최대에 근접 — 신축 시 용적률 범위 내 계획 필요
-              </div>
-            )}
+            ))}
           </div>
-        )}
+          {/* 건물 노후도 */}
+          {ageLabel && (
+            <div style={{padding:'7px 12px',marginBottom:'6px',background:'#fafaf8',border:'1px solid #e8e4dc',fontSize:'11px'}}>{ageLabel}</div>
+          )}
+          {/* 증축 여력 결과 */}
+          {extraArea !== null && extraArea > 0 && (
+            <div style={{background:'#f0fff4',padding:'8px 12px',border:'1px solid #a8d5b0',fontSize:'11px'}}>
+              <span style={{color:'#2e7d32',fontWeight:700}}>증축 여력: {(extraArea/PY).toFixed(1)}평 ({extraArea}㎡)</span>
+              {currArea && <span style={{color:'#666',marginLeft:'8px',fontSize:'10px'}}>현재 연면적의 {((extraArea/parseFloat(currArea))*100).toFixed(0)}% 추가 가능</span>}
+            </div>
+          )}
+          {extraArea !== null && extraArea <= 0 && (
+            <div style={{background:'#fff5f4',padding:'8px 12px',border:'1px solid #e8b4b0',fontSize:'11px',color:'#c0392b'}}>
+              현재 연면적이 법정 최대에 근접 — 신축 시 용적률 범위 내 계획 필요
+            </div>
+          )}
+          {/* 용도지역 변경 시뮬레이션 */}
+          {platA > 0 && zoning && (
+            <div style={{marginTop:'8px'}}>
+              <div style={{fontSize:'10px',color:'#666',marginBottom:'4px',fontWeight:600}}>용도지역 변경 시나리오 (참고용)</div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'6px'}}>
+                {Object.entries(LEGAL_VL)
+                  .filter(([z]) => z !== zoning && LEGAL_VL[z] > (legalVl||0))
+                  .slice(0,3)
+                  .map(([z, vl]) => (
+                    <div key={z} style={{background:'#f0f4ff',padding:'6px 10px',border:'1px solid #c0cff8',fontSize:'10px'}}>
+                      <div style={{color:'#3a6fd8',fontWeight:600,marginBottom:'2px'}}>{z}</div>
+                      <div style={{color:'#666'}}>용적률 {vl}%</div>
+                      <div style={{color:'#0d1b2a',fontWeight:600}}>{((platA*vl/100)/PY).toFixed(0)}평 가능</div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
 
       </div>
 
       {/* 리포트 푸터 */}
-      <div className="print-only" style={{margin:'0 20px 16px', borderTop:'0.8pt solid #c9a84c', paddingTop:'6pt', display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:'8pt', color:'#555'}}>
-        <div style={{display:'flex', alignItems:'center', gap:'8pt'}}>
-          {logoSrc && <img src={logoSrc} style={{height:'20pt', objectFit:'contain'}} />}
+      <div className="print-only" style={{margin:'0 20px 14px',borderTop:'0.8pt solid #c9a84c',paddingTop:'5pt',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'8pt',color:'#555'}}>
+        <div style={{display:'flex',alignItems:'center',gap:'8pt'}}>
+          {logoSrc && <img src={logoSrc} style={{height:'20pt',objectFit:'contain'}} />}
           <div>
-            {bizName && <div style={{fontWeight:700, fontSize:'9pt', color:'#0d1b2a'}}>{bizName}</div>}
+            {bizName && <div style={{fontWeight:700,fontSize:'9pt',color:'#0d1b2a'}}>{bizName}</div>}
             {bizAddr && <div>{bizAddr}</div>}
           </div>
         </div>
-        {(agentName || agentPhone) && (
+        {(agentName||agentPhone) && (
           <div style={{textAlign:'right'}}>
-            {agentName && <div style={{fontWeight:600, color:'#0d1b2a'}}>{agentName}</div>}
+            {agentName && <div style={{fontWeight:600,color:'#0d1b2a'}}>{agentName}</div>}
             {agentPhone && <div>{agentPhone}</div>}
           </div>
         )}
@@ -1211,6 +1284,5 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
     </div>
   );
 }
-
 // ── 마운트 ──
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
