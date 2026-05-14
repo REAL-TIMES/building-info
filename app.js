@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.3.3';
+const VERSION = 'v1.3.4';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -1075,17 +1075,19 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
   return (
     <div className="report-card" style={{background:'white',marginBottom:'28px'}}>
 
-      {/* ── 건물 정보 헤더 ── */}
-      <div style={{background:'#0d1b2a',padding:'12px 20px',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
-        <div>
-          <div style={{fontSize:'9px',letterSpacing:'0.15em',color:'#c9a84c',marginBottom:'3px'}}>TIMES REAL ESTATE · 건물 분석 리포트</div>
-          {reportTitle && <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'26px',color:'white',fontWeight:400,lineHeight:1.1,marginBottom:'4px'}}>{reportTitle}</div>}
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',color: reportTitle ? '#c9a84c' : 'white',fontWeight:400,lineHeight:1.1}}>{title}</div>
-          {mg.jiyukCdNm && <div style={{fontSize:'10px',color:'#c9a84c',marginTop:'3px'}}>{mg.jiyukCdNm}</div>}
-          <div style={{fontSize:'10px',color:'#aaa',marginTop:'2px'}}>{it.platPlc}</div>
-        </div>
-        <div style={{textAlign:'right',fontSize:'10px',color:'#888'}}>
-          <div style={{color:'#c9a84c',fontWeight:500}}>{reportDate}</div>
+      {/* ── 리포트 헤더 ── */}
+      <div style={{background:'white',padding:'14px 20px 12px',borderBottom:'2.5px solid #0d1b2a'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+          <div>
+            <div style={{fontSize:'8px',letterSpacing:'0.25em',color:'#c9a84c',marginBottom:'4px'}}>TIMES REAL ESTATE · 건물 분석 리포트</div>
+            {reportTitle && (
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'30px',fontWeight:700,color:'#0d1b2a',lineHeight:1.1,marginBottom:'4px',letterSpacing:'0.01em'}}>{reportTitle}</div>
+            )}
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:400,color:'#444',lineHeight:1.2}}>{title}</div>
+            {mg.jiyukCdNm && <div style={{fontSize:'10px',color:'#c9a84c',marginTop:'4px',fontWeight:600}}>{mg.jiyukCdNm}</div>}
+            <div style={{fontSize:'10px',color:'#888',marginTop:'2px'}}>{it.platPlc}</div>
+          </div>
+          <div style={{textAlign:'right',fontSize:'11px',color:'#555',fontWeight:500,flexShrink:0,marginLeft:'12px',marginTop:'2px'}}>{reportDate}</div>
         </div>
       </div>
 
@@ -1187,35 +1189,6 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           </div>
         </div>
 
-        {/* ── 입지 분석 ── */}
-        <div style={{marginBottom:'14px'}}>
-          <div style={{fontSize:'11px',fontWeight:600,color:'#0d1b2a',marginBottom:'6px',letterSpacing:'0.05em',borderBottom:'1px solid #e0dcd4',paddingBottom:'4px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span>📍 입지 분석</span>
-            <button className="screen-only" onClick={runAI} disabled={aiLoading}
-              style={{fontSize:'10px',padding:'4px 12px',background: aiLoading ? '#f0ede6' : '#0d1b2a',color: aiLoading ? '#aaa' : '#c9a84c',border:'none',cursor: aiLoading ? 'default' : 'pointer',letterSpacing:'0.05em'}}>
-              {aiLoading ? '🤖 AI 분석 중…' : '🤖 AI 자동 분석'}
-            </button>
-          </div>
-          {aiError && <div style={{fontSize:'10px',color:'#c0392b',background:'#fff5f4',padding:'4px 8px',marginBottom:'6px'}}>⚠ {aiError}</div>}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
-            {[
-              {key:'traffic',    label:'🚇 교통',      ph:'지하철·버스·도보 소요시간 등'},
-              {key:'commercial', label:'🏬 상권',      ph:'인근 상업시설, 백화점, 편의시설 등'},
-              {key:'population', label:'👥 유동인구',  ph:'배후수요, 직장인/주거 비율 등'},
-              {key:'development',label:'🔨 개발·호재', ph:'재개발, 교통망, 상업지 조성 계획 등'},
-            ].map(({key, label, ph}) => (
-              <div key={key}>
-                <div style={{fontSize:'10px',color:'#666',fontWeight:600,marginBottom:'3px'}}>{label}</div>
-                <textarea className="screen-only" rows={3} placeholder={ph}
-                  value={an[key]||''} onChange={ev => upAnalysis(e.id, key, ev.target.value)} style={iSt} />
-                <div className="print-only" style={{minHeight:'50px',padding:'5px 8px',border:'1px solid #e8e4dc',fontSize:'11px',color:'#1a1a2e',lineHeight:1.6,background:'#fafaf8',whiteSpace:'pre-wrap'}}>
-                  {an[key] || <span style={{color:'#ccc'}}>—</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* ── 수익률 분석 ── */}
         <div style={{marginBottom:'14px'}}>
           {hd('💰 수익률 분석')}
@@ -1268,7 +1241,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                   ))}
                 </tbody>
               </table>
-              <div style={{background:'#f0f4ff',padding:'8px 10px',border:'1px solid #c0cff8'}}>
+              <div className="no-print" style={{background:'#f0f4ff',padding:'8px 10px',border:'1px solid #c0cff8'}}>
                 <div style={{fontSize:'10px',color:'#3a6fd8',fontWeight:600,marginBottom:'5px'}}>🔄 역산 — 목표수익률 → 필요 임대료</div>
                 <div style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'11px',flexWrap:'wrap'}}>
                   <span style={{color:'#666'}}>목표</span>
@@ -1320,24 +1293,6 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           {extraArea !== null && extraArea <= 0 && (
             <div style={{background:'#fff5f4',padding:'8px 12px',border:'1px solid #e8b4b0',fontSize:'11px',color:'#c0392b'}}>
               현재 연면적이 법정 최대에 근접 — 신축 시 용적률 범위 내 계획 필요
-            </div>
-          )}
-          {/* 용도지역 변경 시뮬레이션 */}
-          {platA > 0 && zoning && (
-            <div style={{marginTop:'8px'}}>
-              <div style={{fontSize:'10px',color:'#666',marginBottom:'4px',fontWeight:600}}>용도지역 변경 시나리오 (참고용)</div>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'6px'}}>
-                {Object.entries(LEGAL_VL)
-                  .filter(([z]) => z !== zoning && LEGAL_VL[z] > (legalVl||0))
-                  .slice(0,3)
-                  .map(([z, vl]) => (
-                    <div key={z} style={{background:'#f0f4ff',padding:'6px 10px',border:'1px solid #c0cff8',fontSize:'10px'}}>
-                      <div style={{color:'#3a6fd8',fontWeight:600,marginBottom:'2px'}}>{z}</div>
-                      <div style={{color:'#666'}}>용적률 {vl}%</div>
-                      <div style={{color:'#0d1b2a',fontWeight:600}}>{((platA*vl/100)/PY).toFixed(0)}평 가능</div>
-                    </div>
-                  ))}
-              </div>
             </div>
           )}
         </div>
