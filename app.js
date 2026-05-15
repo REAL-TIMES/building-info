@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.3.9';
+const VERSION = 'v1.4.0';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -1111,7 +1111,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
       <div style={{padding:'16px 20px'}}>
 
         {/* ── 2열: 좌(건물사진) / 우(건물기본정보) ── */}
-        <div style={{display:'grid',gridTemplateColumns:'260px 1fr',gap:'16px',marginBottom:'14px',overflow:'hidden'}}>
+        <div style={{display:'grid',gridTemplateColumns:'260px 1fr',gap:'24px',marginBottom:'14px',overflow:'hidden'}}>
 
           {/* 좌: 건물 사진 */}
           <div style={{overflow:'hidden',minWidth:0}}>
@@ -1158,7 +1158,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                   ['용적률',   pct(mg.vlRat)],
                   ['층수',     '지상'+(mg.grndFlrCnt||0)+'층/지하'+(mg.ugrndFlrCnt||0)+'층'],
                   ['세대수',   mg.hhldCnt ? parseInt(mg.hhldCnt).toLocaleString()+'세대' : '—'],
-                  ['사용승인', dt(mg.useAprDay)],
+                  ['사용승인', dt(mg.useAprDay) + (bldAge ? ' ('+bldAge+'년차)' : '')],
                   ['매매가',   e.price ? parseFloat(e.price).toLocaleString()+'억원' : '—', true],
                 ].map(([k,v,big]) => (
                   <tr key={k}>
@@ -1193,7 +1193,13 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                       <td style={{padding:'3px 8px',borderBottom:'1px solid #eee',textAlign:'right'}}>
                         <input type="text" className="screen-only" value={ic[field]||''} placeholder="0"
                           onChange={ev => upIncome(e.id, field, ev.target.value)} style={{...numSt,background:'white',textAlign:'right'}} />
-                        <span className="print-only" style={{fontSize:'12px',display:'block',textAlign:'right'}}>{ic[field] ? parseFloat(ic[field]).toLocaleString() : '—'}</span>
+                        <span className="print-only" style={{fontSize:'12px',display:'block',textAlign:'right'}}>
+                          {ic[field]
+                            ? label.includes('%')
+                              ? parseFloat(ic[field]) + '%'
+                              : fmtAmt(ic[field])
+                            : '—'}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -1257,10 +1263,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
               </div>
             ))}
           </div>
-          {/* 건물 노후도 */}
-          {ageLabel && (
-            <div style={{padding:'7px 12px',marginBottom:'6px',background:'#fafaf8',border:'1px solid #e8e4dc',fontSize:'11px'}}>{ageLabel}</div>
-          )}
+          {/* 건물 노후도 — 사용승인 옆에 표시, 여기선 제거 */}
           {/* 증축 여력 결과 */}
           {extraArea !== null && extraArea > 0 && (
             <div style={{background:'#f0fff4',padding:'8px 12px',border:'1px solid #a8d5b0',fontSize:'11px'}}>
@@ -1304,17 +1307,17 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
 
       </div>
 
-      {/* 리포트 푸터 — 상호/주소 좌측, 작성자/전화번호 우측 */}
+      {/* 리포트 푸터 */}
       <div className="print-only" style={{margin:'8px 20px 14px',borderTop:'1pt solid #c9a84c',paddingTop:'6pt',display:'flex',alignItems:'center',fontSize:'8pt',color:'#555'}}>
         {logoSrc && <img src={logoSrc} style={{height:'20pt',objectFit:'contain',marginRight:'8pt',flexShrink:0}} />}
-        <div style={{flex:1}}>
-          {bizName && <span style={{fontWeight:700,color:'#0d1b2a',marginRight:'6pt'}}>{bizName}</span>}
-          {bizAddr && <span style={{color:'#777'}}>{bizAddr}</span>}
+        <div style={{flex:1,display:'flex',alignItems:'center',gap:'6pt',flexWrap:'nowrap'}}>
+          {bizName && <span style={{fontWeight:700,color:'#0d1b2a',whiteSpace:'nowrap'}}>{bizName}</span>}
+          {bizAddr && <><span style={{color:'#ddd',margin:'0 4pt'}}>|</span><span style={{color:'#777',whiteSpace:'nowrap'}}>{bizAddr}</span></>}
         </div>
         {(agentName||agentPhone) && (
-          <div style={{textAlign:'right',flexShrink:0,marginLeft:'12pt'}}>
-            {agentName  && <div style={{fontWeight:700,color:'#0d1b2a'}}>{agentName}</div>}
-            {agentPhone && <div>{agentPhone}</div>}
+          <div style={{flexShrink:0,marginLeft:'16pt',textAlign:'right',lineHeight:1.6}}>
+            {agentName  && <span style={{fontWeight:700,color:'#0d1b2a',display:'block'}}>{agentName}</span>}
+            {agentPhone && <span style={{display:'block'}}>{agentPhone}</span>}
           </div>
         )}
       </div>
