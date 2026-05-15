@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.4.8';
+const VERSION = 'v1.4.9';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -302,7 +302,12 @@ function App() {
           ? '@media print { @page { size: A4 portrait !important; margin: 10mm 12mm 18mm; } .report-card { page-break-after: always; break-after: page; } }'
           : (vw === 'table' || printMode === 'landscape')
             ? '@media print { @page { size: A4 landscape !important; margin: 10mm 12mm 14mm; } .cg { grid-template-columns: 1fr 1fr 1fr !important; } }'
-            : '@media print { @page { size: A4 portrait !important; margin: 8mm 10mm 16mm; @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 7pt; color: #555; font-family: sans-serif; } @bottom-right { content: "' + (agentName||'') + (agentPhone ? '  |  ' + agentPhone : '') + '"; font-size: 7pt; color: #555; font-family: sans-serif; } } .cg { grid-template-columns: 1fr 1fr !important; } .pci { font-size: 9pt !important; } .pci table td, .pci table th { padding: 3pt 4pt !important; font-size: 8pt !important; } }'
+            : ('@media print { @page { size: A4 portrait !important; margin: 22mm 10mm 16mm;'
+              + ' @top-left { content: "TIMES REAL ESTATE · 타임즈부동산중개"; font-size: 8pt; color: #c9a84c; font-family: sans-serif; letter-spacing: 0.1em; }'
+              + ' @top-right { content: "' + (reportTitle||'건축물대장 비교 보고서') + '  ' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; }'
+              + ' @bottom-left { content: "' + (bizName ? '"' + bizName + '"' : '') + (bizAddr ? '  ' + bizAddr : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
+              + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
+              + ' } .cg { grid-template-columns: 1fr 1fr !important; } .pci { font-size: 9pt !important; } .pci table td, .pci table th { padding: 3pt 4pt !important; font-size: 8pt !important; } }')
       }} />
 
       {/* 인쇄 헤더 — 카드 뷰에서만 표시 */}
@@ -615,14 +620,17 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
         {it.newPlatPlc && <div style={{fontSize:'10px',color:'#bbb',marginTop:'2px'}}>{it.newPlatPlc}</div>}
       </div>
 
-      {/* 매매가 & 평단가 — 주소 바로 아래 */}
+      {/* 매매가 — 블랙박스 (리포트와 동일 스타일) */}
       {priceNum && (
-        <div style={{marginBottom:'4px',background:'#fff9ec',padding:'9px 12px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #e8a020'}}>
-          <span style={{fontSize:'11px',color:'#888'}}>매매가</span>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'18px',fontWeight:600,color:'#0d1b2a'}}>
-            {priceNum}<span style={{fontSize:'12px',fontWeight:400,marginLeft:'2px'}}>억</span>
-            {ppPy && <span style={{fontSize:'11px',fontWeight:400,color:'#888',marginLeft:'10px'}}>평당 {ppPy}<span style={{fontSize:'10px'}}>만원</span></span>}
-          </span>
+        <div style={{marginBottom:'8px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
+          <div style={{background:'#0d1b2a',borderLeft:'3px solid #c9a84c',padding:'7px 12px 8px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span style={{fontSize:'7px',color:'#c9a84c',letterSpacing:'0.2em',fontWeight:600}}>ASKING PRICE</span>
+            <span style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',Arial,sans-serif",fontSize:'24px',fontWeight:700,color:'white',letterSpacing:'-0.02em',lineHeight:1}}>
+              {priceNum.toLocaleString()}
+              <span style={{fontSize:'12px',fontWeight:400,marginLeft:'4px',color:'#c9a84c'}}>억원</span>
+            </span>
+          </div>
+          {ppPy && <div style={{textAlign:'right',fontSize:'9px',color:'#888',marginTop:'2px'}}>평당 {ppPy}만원</div>}
         </div>
       )}
 
@@ -1115,10 +1123,9 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
         {/* ── 2열: 좌(건물사진) / 우(건물기본정보) ── */}
         <div style={{display:'grid',gridTemplateColumns:'260px 1fr',gap:'24px',marginBottom:'14px',overflow:'hidden'}}>
 
-          {/* 좌: 건물 사진 */}
-          <div style={{overflow:'hidden',minWidth:0}}>
-            {hd('📷 건물 사진')}
-            <div style={{height:'175px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',position:'relative',maxHeight:'175px'}}>
+          {/* 좌: 사진 (flex 컬럼 — 매매가를 사용승인 라인 높이에 맞춰 하단 정렬) */}
+          <div style={{overflow:'hidden',minWidth:0,display:'flex',flexDirection:'column'}}>
+            <div style={{height:'175px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',position:'relative',maxHeight:'175px',flexShrink:0}}>
               {photos.length > 0 ? (
                 <div style={{display:'grid',height:'175px',
                   gridTemplateColumns:photos.length===1?'1fr':'1fr 1fr',
@@ -1136,29 +1143,30 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                 <div className="print-only" style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px'}}>사진 없음</div>
               )}
             </div>
-            {/* 매매가 — 사진 아래 구분선 + 여백 확보 */}
-            {e.price && parseFloat(e.price) > 0 && (
-              <div style={{marginTop:'6px',borderTop:'2px solid #e0dcd4',paddingTop:'6px'}}>
-                <div style={{padding:'8px 14px 10px',background:'#0d1b2a',borderLeft:'3px solid #c9a84c',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
-                  <div style={{fontSize:'7px',color:'#c9a84c',letterSpacing:'0.25em',fontWeight:600,marginBottom:'3px'}}>ASKING PRICE</div>
-                  <div style={{textAlign:'right',lineHeight:1}}>
-                    <span style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',Arial,sans-serif",fontSize:'28px',fontWeight:700,color:'white',letterSpacing:'-0.02em'}}>
-                      {parseFloat(e.price).toLocaleString()}
-                    </span>
-                    <span style={{fontFamily:"'Noto Sans KR',sans-serif",fontSize:'13px',fontWeight:400,color:'#c9a84c',marginLeft:'4px'}}>억원</span>
-                  </div>
-                </div>
-              </div>
-            )}
             {photos.length < 3 && (
-              <label className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',cursor:'pointer',padding:'5px',border:'1px dashed #e0dcd4',background:'#fafaf8',fontSize:'10px',color:'#888',marginTop:'4px'}}>
+              <label className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',cursor:'pointer',padding:'5px',border:'1px dashed #e0dcd4',background:'#fafaf8',fontSize:'10px',color:'#888',marginTop:'4px',flexShrink:0}}>
                 📷 {photos.length===0 ? '사진 업로드 (최대 3장)' : '사진 추가 ('+photos.length+'/3)'}
                 <input type="file" accept="image/*" multiple style={{display:'none'}} onChange={ev => {
                   Array.from(ev.target.files).slice(0,3-photos.length).forEach(f=>{const r=new FileReader();r.onload=ev2=>addPhoto(e.id,ev2.target.result);r.readAsDataURL(f);});
                 }} />
               </label>
             )}
+            {/* 매매가 — marginTop:auto로 건물정보 테이블 하단(사용승인 라인)에 맞게 정렬 */}
+            {e.price && parseFloat(e.price) > 0 && (
+              <div style={{marginTop:'auto',paddingTop:'4px',flexShrink:0}}>
+                <div style={{padding:'7px 12px 8px',background:'#0d1b2a',borderLeft:'3px solid #c9a84c',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
+                  <div style={{fontSize:'7px',color:'#c9a84c',letterSpacing:'0.25em',fontWeight:600,marginBottom:'3px'}}>ASKING PRICE</div>
+                  <div style={{textAlign:'right',lineHeight:1}}>
+                    <span style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',Arial,sans-serif",fontSize:'24px',fontWeight:700,color:'white',letterSpacing:'-0.02em'}}>
+                      {parseFloat(e.price).toLocaleString()}
+                    </span>
+                    <span style={{fontFamily:"'Noto Sans KR',sans-serif",fontSize:'12px',fontWeight:400,color:'#c9a84c',marginLeft:'4px'}}>억원</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
+
 
           {/* 우: 건물 기본 정보 */}
           <div style={{overflow:'hidden',minWidth:0}}>
