@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.4.7';
+const VERSION = 'v1.4.8';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -302,7 +302,7 @@ function App() {
           ? '@media print { @page { size: A4 portrait !important; margin: 10mm 12mm 18mm; } .report-card { page-break-after: always; break-after: page; } }'
           : (vw === 'table' || printMode === 'landscape')
             ? '@media print { @page { size: A4 landscape !important; margin: 10mm 12mm 14mm; } .cg { grid-template-columns: 1fr 1fr 1fr !important; } }'
-            : '@media print { @page { size: A4 portrait !important; margin: 8mm 10mm 14mm; } .cg { grid-template-columns: 1fr 1fr !important; } }'
+            : '@media print { @page { size: A4 portrait !important; margin: 8mm 10mm 16mm; @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 7pt; color: #555; font-family: sans-serif; } @bottom-right { content: "' + (agentName||'') + (agentPhone ? '  |  ' + agentPhone : '') + '"; font-size: 7pt; color: #555; font-family: sans-serif; } } .cg { grid-template-columns: 1fr 1fr !important; } .pci { font-size: 9pt !important; } .pci table td, .pci table th { padding: 3pt 4pt !important; font-size: 8pt !important; } }'
       }} />
 
       {/* 인쇄 헤더 — 카드 뷰에서만 표시 */}
@@ -346,10 +346,7 @@ function App() {
               )}
             </div>
 
-            {/* 카드 인쇄 푸터 */}
-            <div className="print-only">
-              <PrintFooter bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />
-            </div>
+            {/* 카드 인쇄 푸터 — @bottom-center CSS로 대체됨 */}
           </>
         )}
         {hasR && vw==='table'  && <CmpT entries={rE} togglePrint={togglePrint} printMode={printMode} reportTitle={reportTitle} reportDate={reportDate} totalSel={rE.filter(e=>e.printSel).length} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />}
@@ -1121,15 +1118,15 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           {/* 좌: 건물 사진 */}
           <div style={{overflow:'hidden',minWidth:0}}>
             {hd('📷 건물 사진')}
-            <div style={{height:'175px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',position:'relative'}}>
+            <div style={{height:'175px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',position:'relative',maxHeight:'175px'}}>
               {photos.length > 0 ? (
-                <div style={{display:'grid',height:'100%',
+                <div style={{display:'grid',height:'175px',
                   gridTemplateColumns:photos.length===1?'1fr':'1fr 1fr',
                   gridTemplateRows:photos.length===3?'1fr 1fr':'1fr',gap:'2px'}}>
                   {photos.map((src, idx) => (
-                    <div key={idx} style={{position:'relative',overflow:'hidden',
+                    <div key={idx} style={{position:'relative',overflow:'hidden',maxHeight:photos.length===3&&idx===0?'175px':'87px',
                       gridRow:photos.length===3&&idx===0?'1/3':'auto'}}>
-                      <img src={src} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
+                      <img src={src} style={{width:'100%',height:photos.length===3&&idx===0?'175px':'87px',maxHeight:photos.length===3&&idx===0?'175px':'87px',objectFit:'cover',display:'block'}} />
                       <button className="no-print" onClick={() => rmPhoto(e.id, idx)}
                         style={{position:'absolute',top:'2px',right:'2px',background:'rgba(0,0,0,0.55)',color:'white',border:'none',cursor:'pointer',fontSize:'11px',padding:'1px 5px',lineHeight:1}}>×</button>
                     </div>
@@ -1139,15 +1136,17 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                 <div className="print-only" style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px'}}>사진 없음</div>
               )}
             </div>
-            {/* 매매가 — 사진 아래, 수직 레이아웃 */}
+            {/* 매매가 — 사진 아래 구분선 + 여백 확보 */}
             {e.price && parseFloat(e.price) > 0 && (
-              <div style={{marginTop:'8px',padding:'10px 16px 12px',background:'#0d1b2a',borderLeft:'4px solid #c9a84c',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact',display:'block'}}>
-                <div style={{fontSize:'8px',color:'#c9a84c',letterSpacing:'0.25em',fontWeight:600,marginBottom:'4px'}}>ASKING PRICE</div>
-                <div style={{textAlign:'right',lineHeight:1}}>
-                  <span style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',Arial,sans-serif",fontSize:'34px',fontWeight:700,color:'white',letterSpacing:'-0.02em'}}>
-                    {parseFloat(e.price).toLocaleString()}
-                  </span>
-                  <span style={{fontFamily:"'Noto Sans KR',sans-serif",fontSize:'16px',fontWeight:400,color:'#c9a84c',marginLeft:'5px'}}>억원</span>
+              <div style={{marginTop:'6px',borderTop:'2px solid #e0dcd4',paddingTop:'6px'}}>
+                <div style={{padding:'8px 14px 10px',background:'#0d1b2a',borderLeft:'3px solid #c9a84c',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
+                  <div style={{fontSize:'7px',color:'#c9a84c',letterSpacing:'0.25em',fontWeight:600,marginBottom:'3px'}}>ASKING PRICE</div>
+                  <div style={{textAlign:'right',lineHeight:1}}>
+                    <span style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',Arial,sans-serif",fontSize:'28px',fontWeight:700,color:'white',letterSpacing:'-0.02em'}}>
+                      {parseFloat(e.price).toLocaleString()}
+                    </span>
+                    <span style={{fontFamily:"'Noto Sans KR',sans-serif",fontSize:'13px',fontWeight:400,color:'#c9a84c',marginLeft:'4px'}}>억원</span>
+                  </div>
                 </div>
               </div>
             )}
