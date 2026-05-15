@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.3.5';
+const VERSION = 'v1.3.6';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -1089,7 +1089,14 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
             {mg.jiyukCdNm && <div style={{fontSize:'10px',color:'#c9a84c',marginTop:'4px',fontWeight:600}}>{mg.jiyukCdNm}</div>}
             <div style={{fontSize:'10px',color:'#888',marginTop:'2px'}}>{it.platPlc}</div>
           </div>
-          <div style={{textAlign:'right',fontSize:'11px',color:'#555',fontWeight:500,flexShrink:0,marginLeft:'12px',marginTop:'2px'}}>{reportDate}</div>
+          <div style={{textAlign:'right',flexShrink:0,marginLeft:'12px',marginTop:'2px'}}>
+            {e.price && parseFloat(e.price) > 0 && (
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'26px',fontWeight:700,color:'#0d1b2a',lineHeight:1,marginBottom:'4px',letterSpacing:'-0.01em'}}>
+                {parseFloat(e.price).toLocaleString()}<span style={{fontSize:'14px',fontWeight:500,marginLeft:'3px'}}>억원</span>
+              </div>
+            )}
+            <div style={{fontSize:'11px',color:'#555',fontWeight:500}}>{reportDate}</div>
+          </div>
         </div>
       </div>
 
@@ -1200,24 +1207,19 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px'}}>
                 <tbody>
                   {[
-                    {label:'매매가',       field:null, val:e.price?parseFloat(e.price)+'억':'—', readonly:true},
                     {label:'보증금 (만원)',field:'deposit'},
                     {label:'월세 (만원)',  field:'monthlyRent'},
                     {label:'관리비 (만원)',field:'mgmtFee'},
                     {label:'대출금액 (만원)',field:'loanAmt'},
                     {label:'대출금리 (%)', field:'loanRate'},
                     {label:'취득세율 (%)', field:'acquiTax'},
-                  ].map(({label, field, val, readonly}) => (
+                  ].map(({label, field}) => (
                     <tr key={label}>
                       <td style={{padding:'3px 6px',background:'#f5f2eb',color:'#666',width:'100px',borderBottom:'1px solid #eee',fontSize:'10px',whiteSpace:'nowrap'}}>{label}</td>
-                      <td style={{padding:'3px 6px',borderBottom:'1px solid #eee'}}>
-                        {readonly
-                          ? <span style={{fontSize:'12px',color:'#1a1a2e'}}>{val}</span>
-                          : <>
-                              <input type="text" className="screen-only" value={ic[field]||''} placeholder="0"
-                                onChange={ev => upIncome(e.id, field, ev.target.value)} style={{...numSt,background:'white'}} />
-                              <span className="print-only" style={{fontSize:'12px'}}>{ic[field] ? parseFloat(ic[field]).toLocaleString() : '—'}</span>
-                            </>}
+                      <td style={{padding:'3px 8px',borderBottom:'1px solid #eee',textAlign:'right'}}>
+                        <input type="text" className="screen-only" value={ic[field]||''} placeholder="0"
+                          onChange={ev => upIncome(e.id, field, ev.target.value)} style={{...numSt,background:'white',textAlign:'right'}} />
+                        <span className="print-only" style={{fontSize:'12px',display:'block',textAlign:'right'}}>{ic[field] ? parseFloat(ic[field]).toLocaleString() : '—'}</span>
                       </td>
                     </tr>
                   ))}
@@ -1234,7 +1236,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                     {label:'연간 순수익',   val:fmt(annNet),  unit:'만원', hi:true},
                     {label:'취득세',        val:fmt(acqAmt),  unit:'만원', hi:false},
                     {label:'실 투자금',     val:fmt(realInv), unit:'만원', hi:false},
-                    {label:'수익률',        val:realInv>0?yldRate.toFixed(2)+'%':'—', unit:'', hi:true},
+                    {label:'연간 수익률',   val:realInv>0?yldRate.toFixed(2)+'%':'—', unit:'', hi:true},
                   ].map(({label, val, unit, hi}) => (
                     <tr key={label}>
                       <td style={{padding:'3px 6px',background:hi?'#fff3dc':'#f5f2eb',color:hi?'#a05800':'#666',width:'100px',borderBottom:'1px solid #eee',fontSize:'10px',fontWeight:hi?700:400,whiteSpace:'nowrap'}}>{label}</td>
@@ -1302,15 +1304,22 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
         {/* ── 추가 설명 ── */}
         <div style={{marginTop:'10px'}}>
           {hd('📝 추가 설명')}
-          <textarea className="no-print" rows={5}
-            placeholder={'한 줄씩 입력하세요. 인쇄 시 각 줄 앞에 • 가 자동으로 붙습니다.\n예) 주차 10대 가능\n예) 엘리베이터 1대'}
+          {/* 화면: 입력창 */}
+          <textarea className="no-print" rows={4}
+            placeholder={'한 줄씩 입력 → 인쇄 시 • 자동 추가, 2열로 배치됩니다.\n예) 주차 10대 가능\n예) 1층 상가 임대 중\n예) 엘리베이터 1대'}
             value={e.notes||''}
             onChange={ev => upNotes(e.id, ev.target.value)}
             style={{width:'100%',fontSize:'12px',padding:'8px 10px',border:'1px solid #e0dcd4',resize:'vertical',lineHeight:1.7,fontFamily:"'Noto Sans KR',sans-serif",boxSizing:'border-box'}} />
+          {e.notes && e.notes.split('\n').filter(l=>l.trim()).length > 6 && (
+            <div className="no-print" style={{fontSize:'10px',color:'#e67e22',marginTop:'3px'}}>
+              ⚠ 항목이 많으면 인쇄 시 페이지가 늘어날 수 있습니다. 6줄 이하를 권장합니다.
+            </div>
+          )}
+          {/* 인쇄: 2열 레이아웃, break-inside:avoid */}
           {e.notes && (
-            <div className="print-only" style={{fontSize:'11px',color:'#1a1a2e',lineHeight:1.8,padding:'6px 0'}}>
+            <div className="print-only" style={{columnCount:2,columnGap:'16px',fontSize:'11px',color:'#1a1a2e',lineHeight:1.8,padding:'4px 0',breakInside:'avoid'}}>
               {e.notes.split('\n').filter(l => l.trim()).map((line, idx) => (
-                <div key={idx} style={{display:'flex',gap:'6px',marginBottom:'2px'}}>
+                <div key={idx} style={{display:'flex',gap:'5px',marginBottom:'1px',breakInside:'avoid',pageBreakInside:'avoid'}}>
                   <span style={{color:'#c9a84c',fontWeight:700,flexShrink:0}}>•</span>
                   <span>{line}</span>
                 </div>
@@ -1322,18 +1331,20 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
       </div>
 
       {/* 리포트 푸터 */}
-      <div className="print-only" style={{margin:'0 20px 14px',borderTop:'0.8pt solid #c9a84c',paddingTop:'5pt',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'8pt',color:'#555'}}>
-        <div style={{display:'flex',alignItems:'center',gap:'8pt'}}>
-          {logoSrc && <img src={logoSrc} style={{height:'20pt',objectFit:'contain'}} />}
-          <div>
+      <div className="print-only" style={{margin:'8px 20px 14px',borderTop:'1pt solid #c9a84c',paddingTop:'6pt',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'8pt',color:'#555'}}>
+        {/* 왼쪽: 로고 + 상호 + 주소 */}
+        <div style={{display:'flex',alignItems:'center',gap:'8pt',flex:1}}>
+          {logoSrc && <img src={logoSrc} style={{height:'22pt',objectFit:'contain',flexShrink:0}} />}
+          <div style={{lineHeight:1.5}}>
             {bizName && <div style={{fontWeight:700,fontSize:'9pt',color:'#0d1b2a'}}>{bizName}</div>}
-            {bizAddr && <div>{bizAddr}</div>}
+            {bizAddr && <div style={{color:'#777'}}>{bizAddr}</div>}
           </div>
         </div>
+        {/* 오른쪽: 담당자 + 연락처 */}
         {(agentName||agentPhone) && (
-          <div style={{textAlign:'right'}}>
-            {agentName && <div style={{fontWeight:600,color:'#0d1b2a'}}>{agentName}</div>}
-            {agentPhone && <div>{agentPhone}</div>}
+          <div style={{textAlign:'right',borderLeft:'0.5pt solid #ddd',paddingLeft:'10pt',marginLeft:'10pt',lineHeight:1.8,flexShrink:0}}>
+            {agentName  && <div style={{fontWeight:700,fontSize:'9pt',color:'#0d1b2a'}}>{agentName}</div>}
+            {agentPhone && <div style={{letterSpacing:'0.05em'}}>{agentPhone}</div>}
           </div>
         )}
       </div>
