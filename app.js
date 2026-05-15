@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.4.1';
+const VERSION = 'v1.4.2';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -1067,6 +1067,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
   const legalVlFromTable = found ? found[1] : 0;
   // 수기 입력 maxVlRat 우선 적용
   const legalVl = mg.maxVlRat ? parseFloat(mg.maxVlRat) : legalVlFromTable;
+  const currVl  = mg.vlRat ? parseFloat(mg.vlRat) : 0;
   const maxArea = platA && legalVl ? +(platA * legalVl / 100).toFixed(1) : null;
   const currArea = mg.totArea ? +parseFloat(mg.totArea).toFixed(1) : null;
   const extraArea = (maxArea && currArea) ? +(maxArea - currArea).toFixed(1) : null;
@@ -1099,8 +1100,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
               <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'30px',fontWeight:700,color:'#0d1b2a',lineHeight:1.1,marginBottom:'4px',letterSpacing:'0.01em'}}>{reportTitle}</div>
             )}
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:400,color:'#444',lineHeight:1.2}}>{title}</div>
-            {mg.jiyukCdNm && <div style={{fontSize:'10px',color:'#c9a84c',marginTop:'4px',fontWeight:600}}>{mg.jiyukCdNm}</div>}
-            <div style={{fontSize:'10px',color:'#888',marginTop:'2px'}}>{it.platPlc}</div>
+            <div style={{fontSize:'10px',color:'#888',marginTop:'4px'}}>{it.platPlc}</div>
           </div>
           <div style={{textAlign:'right',flexShrink:0,marginLeft:'12px',marginTop:'2px'}}>
             <div style={{fontSize:'11px',color:'#555',fontWeight:500}}>{reportDate}</div>
@@ -1116,7 +1116,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           {/* 좌: 건물 사진 */}
           <div style={{overflow:'hidden',minWidth:0}}>
             {hd('📷 건물 사진')}
-            <div style={{height:'220px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',position:'relative'}}>
+            <div style={{height:'175px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',position:'relative'}}>
               {photos.length > 0 ? (
                 <div style={{display:'grid',height:'100%',
                   gridTemplateColumns:photos.length===1?'1fr':'1fr 1fr',
@@ -1249,19 +1249,56 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
         <div style={{marginBottom:'10px'}}>
           {hd('🏗 신축·증축 여력 분석')}
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'8px',fontSize:'11px'}}>
-            {[
-              {label:'용도지역',          val:zoning||'—'},
-              {label:'법정 최대 용적률',   val:legalVl?legalVl+'%':'확인 필요'},
-              {label:'현재 용적률',        val:pct(mg.vlRat)},
-              {label:'대지면적',           val:platA>0?py(mg.platArea)+'평':'—'},
-              {label:'현재 연면적',        val:currArea?(parseFloat(currArea)/PY).toFixed(1)+'평':'—'},
-              {label:'최대 건축 가능 연면적',val:maxArea?(parseFloat(maxArea)/PY).toFixed(1)+'평':'—'},
-            ].map(({label,val}) => (
-              <div key={label} style={{background:'#f5f2eb',padding:'7px 10px'}}>
-                <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>{label}</div>
-                <div style={{fontWeight:600,color:'#0d1b2a',fontSize:'12px'}}>{val}</div>
+            {/* 행1 */}
+            <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
+              <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>용도지역</div>
+              <div style={{fontWeight:600,color:'#0d1b2a',fontSize:'12px'}}>{zoning||'—'}</div>
+            </div>
+            <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
+              <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>법정 최대 용적률</div>
+              <div style={{fontWeight:600,color:'#0d1b2a',fontSize:'12px'}}>{legalVl ? legalVl+'%' : '확인 필요'}</div>
+            </div>
+            <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
+              <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>현재 용적률</div>
+              <div style={{fontWeight:700,fontSize:'13px',
+                color: currVl>0&&legalVl>0 ? (currVl>legalVl ? '#e74c3c' : '#2471a3') : '#0d1b2a',
+                display:'flex',alignItems:'center',gap:'4px'}}>
+                {pct(mg.vlRat)}
+                {currVl>0 && legalVl>0 && (
+                  <span style={{fontSize:'9px',fontWeight:500,
+                    background: currVl>legalVl ? '#fdecea' : '#eaf4fb',
+                    color: currVl>legalVl ? '#e74c3c' : '#2471a3',
+                    padding:'1px 4px',borderRadius:'2px',border:'0.5px solid currentColor'}}>
+                    {currVl>legalVl ? '초과' : '여유'}
+                  </span>
+                )}
               </div>
-            ))}
+            </div>
+            {/* 행2 */}
+            <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
+              <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>대지면적</div>
+              <div style={{fontWeight:600,color:'#0d1b2a',fontSize:'12px'}}>{platA>0 ? py(mg.platArea)+'평' : '—'}</div>
+            </div>
+            <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
+              <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>최대 건축 가능 연면적</div>
+              <div style={{fontWeight:600,color:'#0d1b2a',fontSize:'12px'}}>{maxArea ? (parseFloat(maxArea)/PY).toFixed(1)+'평' : '—'}</div>
+            </div>
+            <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
+              <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>현재 연면적</div>
+              <div style={{fontWeight:700,fontSize:'13px',
+                color: currArea&&maxArea ? (parseFloat(currArea)>parseFloat(maxArea) ? '#e74c3c' : '#2471a3') : '#0d1b2a',
+                display:'flex',alignItems:'center',gap:'4px'}}>
+                {currArea ? (parseFloat(currArea)/PY).toFixed(1)+'평' : '—'}
+                {currArea && maxArea && (
+                  <span style={{fontSize:'9px',fontWeight:500,
+                    background: parseFloat(currArea)>parseFloat(maxArea) ? '#fdecea' : '#eaf4fb',
+                    color: parseFloat(currArea)>parseFloat(maxArea) ? '#e74c3c' : '#2471a3',
+                    padding:'1px 4px',borderRadius:'2px',border:'0.5px solid currentColor'}}>
+                    {parseFloat(currArea)>parseFloat(maxArea) ? '초과' : '여유'}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
           {/* 건물 노후도 — 사용승인 옆에 표시, 여기선 제거 */}
           {/* 증축 여력 결과 */}
@@ -1289,12 +1326,12 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
             style={{width:'100%',fontSize:'12px',padding:'8px 10px',border:'1px solid #e0dcd4',resize:'vertical',lineHeight:1.7,fontFamily:"'Noto Sans KR',sans-serif",boxSizing:'border-box'}} />
           {e.notes && e.notes.split('\n').filter(l=>l.trim()).length > 6 && (
             <div className="no-print" style={{fontSize:'10px',color:'#e67e22',marginTop:'3px'}}>
-              ⚠ 항목이 많으면 인쇄 시 페이지가 늘어날 수 있습니다. 6줄 이하를 권장합니다.
+              ⚠ 인쇄 시 6줄(2열)까지만 표시됩니다. 현재 입력 초과.
             </div>
           )}
           {/* 인쇄: 2열 레이아웃, break-inside:avoid */}
           {e.notes && (
-            <div className="print-only" style={{columnCount:2,columnGap:'16px',fontSize:'11px',color:'#1a1a2e',lineHeight:1.8,padding:'4px 0',breakInside:'avoid'}}>
+            <div className="print-only" style={{columnCount:2,columnGap:'16px',fontSize:'10px',color:'#1a1a2e',lineHeight:1.65,padding:'3px 0',breakInside:'avoid',maxHeight:'72px',overflow:'hidden'}}>
               {e.notes.split('\n').filter(l => l.trim()).map((line, idx) => (
                 <div key={idx} style={{display:'flex',gap:'5px',marginBottom:'1px',breakInside:'avoid',pageBreakInside:'avoid'}}>
                   <span style={{color:'#c9a84c',fontWeight:700,flexShrink:0}}>•</span>
