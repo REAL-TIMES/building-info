@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.4.6';
+const VERSION = 'v1.4.7';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -302,7 +302,7 @@ function App() {
           ? '@media print { @page { size: A4 portrait !important; margin: 10mm 12mm 18mm; } .report-card { page-break-after: always; break-after: page; } }'
           : (vw === 'table' || printMode === 'landscape')
             ? '@media print { @page { size: A4 landscape !important; margin: 10mm 12mm 14mm; } .cg { grid-template-columns: 1fr 1fr 1fr !important; } }'
-            : '@media print { @page { size: A4 portrait !important; margin: 12mm 14mm 16mm; } .cg { grid-template-columns: 1fr 1fr !important; } }'
+            : '@media print { @page { size: A4 portrait !important; margin: 8mm 10mm 14mm; } .cg { grid-template-columns: 1fr 1fr !important; } }'
       }} />
 
       {/* 인쇄 헤더 — 카드 뷰에서만 표시 */}
@@ -1139,14 +1139,16 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                 <div className="print-only" style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px'}}>사진 없음</div>
               )}
             </div>
-            {/* 매매가 — 사진 아래, 여백 확보 */}
+            {/* 매매가 — 사진 아래, 수직 레이아웃 */}
             {e.price && parseFloat(e.price) > 0 && (
-              <div style={{marginTop:'10px',padding:'13px 16px',background:'#0d1b2a',borderLeft:'4px solid #c9a84c',display:'flex',alignItems:'center',justifyContent:'space-between',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
-                <span style={{fontSize:'9px',color:'#c9a84c',letterSpacing:'0.2em',fontWeight:500}}>ASKING PRICE</span>
-                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'36px',fontWeight:700,color:'white',lineHeight:1,letterSpacing:'-0.01em'}}>
-                  {parseFloat(e.price).toLocaleString()}
-                  <span style={{fontSize:'17px',fontWeight:400,marginLeft:'5px',color:'#c9a84c'}}>억원</span>
-                </span>
+              <div style={{marginTop:'8px',padding:'10px 16px 12px',background:'#0d1b2a',borderLeft:'4px solid #c9a84c',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact',display:'block'}}>
+                <div style={{fontSize:'8px',color:'#c9a84c',letterSpacing:'0.25em',fontWeight:600,marginBottom:'4px'}}>ASKING PRICE</div>
+                <div style={{textAlign:'right',lineHeight:1}}>
+                  <span style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',Arial,sans-serif",fontSize:'34px',fontWeight:700,color:'white',letterSpacing:'-0.02em'}}>
+                    {parseFloat(e.price).toLocaleString()}
+                  </span>
+                  <span style={{fontFamily:"'Noto Sans KR',sans-serif",fontSize:'16px',fontWeight:400,color:'#c9a84c',marginLeft:'5px'}}>억원</span>
+                </div>
               </div>
             )}
             {photos.length < 3 && (
