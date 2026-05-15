@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.4.0';
+const VERSION = 'v1.4.1';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -1307,19 +1307,31 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
 
       </div>
 
-      {/* 리포트 푸터 */}
-      <div className="print-only" style={{margin:'8px 20px 14px',borderTop:'1pt solid #c9a84c',paddingTop:'6pt',display:'flex',alignItems:'center',fontSize:'8pt',color:'#555'}}>
-        {logoSrc && <img src={logoSrc} style={{height:'20pt',objectFit:'contain',marginRight:'8pt',flexShrink:0}} />}
-        <div style={{flex:1,display:'flex',alignItems:'center',gap:'6pt',flexWrap:'nowrap'}}>
-          {bizName && <span style={{fontWeight:700,color:'#0d1b2a',whiteSpace:'nowrap'}}>{bizName}</span>}
-          {bizAddr && <><span style={{color:'#ddd',margin:'0 4pt'}}>|</span><span style={{color:'#777',whiteSpace:'nowrap'}}>{bizAddr}</span></>}
-        </div>
-        {(agentName||agentPhone) && (
-          <div style={{flexShrink:0,marginLeft:'16pt',textAlign:'right',lineHeight:1.6}}>
-            {agentName  && <span style={{fontWeight:700,color:'#0d1b2a',display:'block'}}>{agentName}</span>}
-            {agentPhone && <span style={{display:'block'}}>{agentPhone}</span>}
-          </div>
-        )}
+      {/* 리포트 푸터 — CSS table (인쇄 안정) */}
+      <div className="print-only" style={{margin:'8px 20px 14px',borderTop:'1pt solid #c9a84c',paddingTop:'6pt',fontSize:'8pt',color:'#555'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
+          <tbody>
+            <tr style={{verticalAlign:'middle'}}>
+              {/* 좌: 로고 + 상호 + 주소 */}
+              <td style={{verticalAlign:'middle',paddingRight:'8pt'}}>
+                <span style={{display:'inline-flex',alignItems:'center',gap:'6pt'}}>
+                  {logoSrc && <img src={logoSrc} style={{height:'18pt',objectFit:'contain',verticalAlign:'middle'}} />}
+                  {bizName && <strong style={{color:'#0d1b2a',fontSize:'9pt'}}>{bizName}</strong>}
+                  {bizName && bizAddr && <span style={{color:'#ccc',margin:'0 4pt'}}>|</span>}
+                  {bizAddr && <span style={{color:'#777'}}>{bizAddr}</span>}
+                </span>
+              </td>
+              {/* 우: 담당자 + 연락처 (같은 셀, 우측 정렬) */}
+              {(agentName||agentPhone) && (
+                <td style={{textAlign:'right',whiteSpace:'nowrap',verticalAlign:'middle',width:'120pt'}}>
+                  {agentName  && <strong style={{color:'#0d1b2a',fontSize:'9pt'}}>{agentName}</strong>}
+                  {agentName && agentPhone && <span style={{color:'#ccc',margin:'0 4pt'}}>|</span>}
+                  {agentPhone && <span>{agentPhone}</span>}
+                </td>
+              )}
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
