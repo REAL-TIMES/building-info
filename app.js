@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.3.6';
+const VERSION = 'v1.3.7';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -68,6 +68,19 @@ const R = {
 const PY = 3.3058;
 const py  = v => v ? (parseFloat(v) / PY).toFixed(1) : null;
 const m2  = v => (v != null && v !== '' && parseFloat(v) > 0)
+// 억/만원 혼합 포맷: 23,000만원 → 2억 3,000만원
+const fmtAmt = (manwon) => {
+  const n = Math.round(parseFloat(manwon) || 0);
+  if (n <= 0) return '—';
+  if (n >= 10000) {
+    const uk  = Math.floor(n / 10000);
+    const man = n % 10000;
+    return man > 0
+      ? uk + '억 ' + man.toLocaleString() + '만원'
+      : uk + '억원';
+  }
+  return n.toLocaleString() + '만원';
+};
   ? py(v) + '평 (약 ' + parseFloat(v).toFixed(1) + '㎡)' : '—';
 const pct = v => (v != null && v !== '' && parseFloat(v) > 0) ? parseFloat(v).toFixed(1) + '%' : '—';
 const dt  = v => {
@@ -611,9 +624,9 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
       {priceNum && (
         <div style={{marginBottom:'4px',background:'#fff9ec',padding:'9px 12px',display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #e8a020'}}>
           <span style={{fontSize:'11px',color:'#888'}}>매매가</span>
-          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:600,color:'#0d1b2a'}}>
-            {priceNum}억
-            {ppPy && <span style={{fontSize:'12px',fontWeight:400,color:'#888',marginLeft:'8px'}}>평당 {ppPy}만원</span>}
+          <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'18px',fontWeight:600,color:'#0d1b2a'}}>
+            {priceNum}<span style={{fontSize:'12px',fontWeight:400,marginLeft:'2px'}}>억</span>
+            {ppPy && <span style={{fontSize:'11px',fontWeight:400,color:'#888',marginLeft:'10px'}}>평당 {ppPy}<span style={{fontSize:'10px'}}>만원</span></span>}
           </span>
         </div>
       )}
@@ -634,10 +647,12 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
           {missingPlatArea && !m.platArea && <span style={{color:'#e74c3c',marginLeft:'4px',fontSize:'10px'}}>미확인</span>}
           {m.platArea && <span className="no-print" style={{color:'#2e7d32',marginLeft:'4px',fontSize:'10px'}}>✓수기</span>}
         </span>
-        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:600,color:'#0d1b2a'}}>
-          {platArea && parseFloat(platArea) > 0
-            ? <>{py(platArea)}평 <span style={{fontSize:'13px',fontWeight:400,color:'#888'}}>({parseFloat(platArea).toFixed(1)}㎡)</span></>
-            : '—'}
+        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'18px',fontWeight:600,color:'#0d1b2a'}}>
+          {platArea && parseFloat(platArea) > 0 ? (
+            <>{py(platArea)}<span style={{fontSize:'12px',fontWeight:400,marginLeft:'2px'}}>평</span>
+              <span style={{fontSize:'12px',fontWeight:400,color:'#aaa',marginLeft:'6px'}}>({parseFloat(platArea).toFixed(0)}㎡)</span>
+            </>
+          ) : '—'}
         </span>
       </div>
 
@@ -1090,11 +1105,6 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
             <div style={{fontSize:'10px',color:'#888',marginTop:'2px'}}>{it.platPlc}</div>
           </div>
           <div style={{textAlign:'right',flexShrink:0,marginLeft:'12px',marginTop:'2px'}}>
-            {e.price && parseFloat(e.price) > 0 && (
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'26px',fontWeight:700,color:'#0d1b2a',lineHeight:1,marginBottom:'4px',letterSpacing:'-0.01em'}}>
-                {parseFloat(e.price).toLocaleString()}<span style={{fontSize:'14px',fontWeight:500,marginLeft:'3px'}}>억원</span>
-              </div>
-            )}
             <div style={{fontSize:'11px',color:'#555',fontWeight:500}}>{reportDate}</div>
           </div>
         </div>
@@ -1102,23 +1112,17 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
 
       <div style={{padding:'16px 20px'}}>
 
-        {/* ── 사진 + 기본정보 + 지도 ── */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px',marginBottom:'14px',overflow:'hidden'}}>
+        {/* ── 2열 레이아웃: 좌(사진+지도) / 우(건물정보) ── */}
+        <div style={{display:'grid',gridTemplateColumns:'220px 1fr',gap:'14px',marginBottom:'14px',overflow:'hidden'}}>
 
-          {/* 사진 */}
+          {/* 왼쪽: 사진 + 지도 */}
           <div style={{overflow:'hidden',minWidth:0}}>
             {hd('📷 건물 사진')}
-            {/* 고정 150px 컨테이너 — 비율 무시, 항상 동일 인쇄 영역 */}
-            <div style={{height:'150px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',marginBottom:'4px',position:'relative'}}>
+            <div style={{height:'140px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',position:'relative',marginBottom:'4px'}}>
               {photos.length > 0 ? (
-                <div style={{display:'grid',height:'100%',
-                  gridTemplateColumns: photos.length===1 ? '1fr' : '1fr 1fr',
-                  gridTemplateRows: photos.length===3 ? '1fr 1fr' : '1fr',
-                  gap:'2px'}}>
+                <div style={{display:'grid',height:'100%',gridTemplateColumns:photos.length===1?'1fr':'1fr 1fr',gap:'2px'}}>
                   {photos.map((src, idx) => (
-                    <div key={idx} style={{
-                      position:'relative', overflow:'hidden',
-                      gridRow: photos.length===3 && idx===0 ? '1/3' : 'auto'}}>
+                    <div key={idx} style={{position:'relative',overflow:'hidden'}}>
                       <img src={src} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
                       <button className="no-print" onClick={() => rmPhoto(e.id, idx)}
                         style={{position:'absolute',top:'2px',right:'2px',background:'rgba(0,0,0,0.55)',color:'white',border:'none',cursor:'pointer',fontSize:'11px',padding:'1px 5px',lineHeight:1}}>×</button>
@@ -1126,25 +1130,42 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                   ))}
                 </div>
               ) : (
-                <div className="print-only" style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px'}}>사진 없음</div>
+                <div className="print-only" style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px'}}>사진 없음</div>
               )}
             </div>
-            {/* 업로드 버튼 — 항상 표시 */}
             {photos.length < 3 && (
-              <label className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',cursor:'pointer',padding:'6px',border:'1px dashed #e0dcd4',background:'#fafaf8',fontSize:'11px',color:'#888'}}>
-                📷 {photos.length === 0 ? '사진 업로드 (최대 3장)' : `사진 추가 (${photos.length}/3)`}
+              <label className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',cursor:'pointer',padding:'5px',border:'1px dashed #e0dcd4',background:'#fafaf8',fontSize:'10px',color:'#888',marginBottom:'6px'}}>
+                📷 {photos.length===0 ? '사진 업로드 (최대 3장)' : '추가 ('+photos.length+'/3)'}
                 <input type="file" accept="image/*" multiple style={{display:'none'}} onChange={ev => {
-                  Array.from(ev.target.files).slice(0, 3-photos.length).forEach(f => {
-                    const r = new FileReader();
-                    r.onload = ev2 => addPhoto(e.id, ev2.target.result);
-                    r.readAsDataURL(f);
-                  });
+                  Array.from(ev.target.files).slice(0,3-photos.length).forEach(f=>{const r=new FileReader();r.onload=ev2=>addPhoto(e.id,ev2.target.result);r.readAsDataURL(f);});
                 }} />
               </label>
             )}
+            {hd('🗺 위치 지도')}
+            <div style={{height:'140px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',position:'relative'}}>
+              {e.mapPhoto ? (
+                <>
+                  <img src={e.mapPhoto} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
+                  <button className="no-print" onClick={()=>setMapPhoto(e.id,null)}
+                    style={{position:'absolute',top:'3px',right:'3px',background:'rgba(0,0,0,0.5)',color:'white',border:'none',cursor:'pointer',fontSize:'11px',padding:'2px 6px'}}>×</button>
+                </>
+              ) : (
+                <div className="print-only" style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'10px'}}>지도 이미지 없음</div>
+              )}
+            </div>
+            {!e.mapPhoto && (
+              <label className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',cursor:'pointer',padding:'5px',border:'1px dashed #b8ccff',background:'#f0f4ff',fontSize:'10px',color:'#3a6fd8',marginTop:'3px'}}>
+                🗺 지도 업로드
+                <input type="file" accept="image/*" style={{display:'none'}} onChange={ev=>{const f=ev.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev2=>setMapPhoto(e.id,ev2.target.result);r.readAsDataURL(f);}} />
+              </label>
+            )}
+            <div className="no-print" style={{display:'flex',gap:'4px',marginTop:'4px'}}>
+              <a href={naverMapUrl} target="_blank" rel="noreferrer" style={{fontSize:'9px',padding:'2px 6px',background:'#f0fff4',color:'#2e7d32',border:'1px solid #a8d5b0',textDecoration:'none'}}>네이버지도</a>
+              <a href={kakaoMapUrl} target="_blank" rel="noreferrer" style={{fontSize:'9px',padding:'2px 6px',background:'#fff9e6',color:'#7a5c00',border:'1px solid #f0d060',textDecoration:'none'}}>카카오맵</a>
+            </div>
           </div>
 
-          {/* 기본 건물 정보 */}
+          {/* 오른쪽: 건물 기본 정보 */}
           <div style={{overflow:'hidden',minWidth:0}}>
             {hd('🏢 건물 기본 정보')}
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px'}}>
@@ -1152,51 +1173,25 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                 {[
                   ['주용도',   [mg.mainPurpsCdNm,mg.etcPurps].filter(Boolean).join('/')||'—'],
                   ['주구조',   mg.strctCdNm||mg.mainStrctCdNm||'—'],
-                  ['대지면적', platA>0 ? py(mg.platArea)+'평 ('+parseFloat(mg.platArea).toFixed(1)+'㎡)' : '—'],
-                  ['연면적',   mg.totArea&&parseFloat(mg.totArea)>0 ? py(mg.totArea)+'평 ('+parseFloat(mg.totArea).toFixed(1)+'㎡)' : '—'],
+                  ['대지면적', platA>0 ? py(mg.platArea)+'평 ('+parseFloat(mg.platArea).toFixed(0)+'㎡)' : '—'],
+                  ['연면적',   mg.totArea&&parseFloat(mg.totArea)>0 ? py(mg.totArea)+'평 ('+parseFloat(mg.totArea).toFixed(0)+'㎡)' : '—'],
                   ['건폐율',   pct(mg.bcRat)],
                   ['용적률',   pct(mg.vlRat)],
                   ['층수',     '지상'+(mg.grndFlrCnt||0)+'층/지하'+(mg.ugrndFlrCnt||0)+'층'],
                   ['세대수',   mg.hhldCnt ? parseInt(mg.hhldCnt).toLocaleString()+'세대' : '—'],
                   ['사용승인', dt(mg.useAprDay)],
-                  ['매매가',   e.price ? parseFloat(e.price).toLocaleString()+'억원' : '—'],
-                ].map(([k,v]) => (
+                  ['매매가',   e.price ? parseFloat(e.price).toLocaleString()+'억원' : '—', true],
+                ].map(([k,v,big]) => (
                   <tr key={k}>
-                    <td style={{padding:'2px 5px',background:'#f5f2eb',color:'#666',fontWeight:500,width:'58px',borderBottom:'1px solid #eee',whiteSpace:'nowrap',fontSize:'10px'}}>{k}</td>
-                    <td style={{padding:'2px 6px',borderBottom:'1px solid #eee',color:'#1a1a2e',fontSize:'11px'}}>{v}</td>
+                    <td style={{padding:'3px 6px',background:big?'#fff3dc':'#f5f2eb',color:big?'#a05800':'#666',fontWeight:500,width:'58px',borderBottom:'1px solid #eee',whiteSpace:'nowrap',fontSize:'10px'}}>{k}</td>
+                    <td style={{padding:'3px 8px',borderBottom:'1px solid #eee',color:'#1a1a2e',fontSize:big?'15px':'11px',fontWeight:big?700:400}}>{v}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          {/* 지도 */}
-          <div style={{overflow:'hidden',minWidth:0}}>
-            {hd('🗺 위치 지도')}
-            {/* 지도 스크린샷 업로드 (인쇄용) */}
-            {e.mapPhoto ? (
-              <div style={{position:'relative',height:'150px',overflow:'hidden'}}>
-                <img src={e.mapPhoto} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} />
-                <button className="no-print" onClick={() => setMapPhoto(e.id, null)}
-                  style={{position:'absolute',top:'3px',right:'3px',background:'rgba(0,0,0,0.5)',color:'white',border:'none',cursor:'pointer',fontSize:'11px',padding:'2px 6px'}}>×</button>
-                <span className="no-print" style={{position:'absolute',bottom:'3px',left:'3px',fontSize:'9px',color:'white',background:'rgba(0,0,0,0.45)',padding:'1px 5px'}}>✓ 인쇄용 지도</span>
-              </div>
-            ) : (
-              <>
-                <label className="no-print" style={{display:'block',fontSize:'10px',color:'#3a6fd8',cursor:'pointer',padding:'4px 8px',border:'1px solid #b8ccff',background:'#f0f4ff',textAlign:'center',marginBottom:'4px'}}>
-                  📷 인쇄용 지도 이미지 업로드
-                  <input type="file" accept="image/*" style={{display:'none'}} onChange={ev => { const f=ev.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev2=>setMapPhoto(e.id,ev2.target.result); r.readAsDataURL(f); }} />
-                </label>
-                <div className="print-only" style={{height:'150px',border:'1px solid #e0dcd4',display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'10px'}}>지도 이미지 없음</div>
-              </>
-            )}
-            {/* 외부 지도 링크 */}
-            <div className="no-print" style={{display:'flex',gap:'4px',marginTop:'4px'}}>
-              <a href={naverMapUrl} target="_blank" rel="noreferrer" style={{fontSize:'9px',padding:'2px 6px',background:'#f0fff4',color:'#2e7d32',border:'1px solid #a8d5b0',textDecoration:'none'}}>네이버지도</a>
-              <a href={kakaoMapUrl} target="_blank" rel="noreferrer" style={{fontSize:'9px',padding:'2px 6px',background:'#fff9e6',color:'#7a5c00',border:'1px solid #f0d060',textDecoration:'none'}}>카카오맵</a>
-            </div>
-          </div>
         </div>
+
 
         {/* ── 수익률 분석 ── */}
         <div style={{marginBottom:'14px'}}>
@@ -1231,16 +1226,16 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px',marginBottom:'10px'}}>
                 <tbody>
                   {[
-                    {label:'연간 임대수입', val:fmt(annInc),  unit:'만원', hi:false},
-                    {label:'연간 이자비용', val:fmt(annInt),  unit:'만원', hi:false},
-                    {label:'연간 순수익',   val:fmt(annNet),  unit:'만원', hi:true},
-                    {label:'취득세',        val:fmt(acqAmt),  unit:'만원', hi:false},
-                    {label:'실 투자금',     val:fmt(realInv), unit:'만원', hi:false},
-                    {label:'연간 수익률',   val:realInv>0?yldRate.toFixed(2)+'%':'—', unit:'', hi:true},
-                  ].map(({label, val, unit, hi}) => (
+                    {label:'연간 임대수입', val:fmtAmt(annInc), hi:false},
+                    {label:'연간 이자비용', val:fmtAmt(annInt), hi:false},
+                    {label:'연간 순수익',   val:fmtAmt(annNet), hi:true},
+                    {label:'취득세',        val:fmtAmt(acqAmt), hi:false},
+                    {label:'실 투자금',     val:fmtAmt(realInv), hi:false},
+                    {label:'연간 수익률',   val:realInv>0?yldRate.toFixed(2)+'%':'—', hi:true},
+                  ].map(({label, val, hi}) => (
                     <tr key={label}>
                       <td style={{padding:'3px 6px',background:hi?'#fff3dc':'#f5f2eb',color:hi?'#a05800':'#666',width:'100px',borderBottom:'1px solid #eee',fontSize:'10px',fontWeight:hi?700:400,whiteSpace:'nowrap'}}>{label}</td>
-                      <td style={{padding:'3px 8px',borderBottom:'1px solid #eee',fontWeight:hi?700:400,color:hi?'#0d1b2a':'#333',textAlign:'right',fontSize:'12px'}}>{val}{unit&&val!=='—'&&<span style={{fontSize:'9px',fontWeight:400,marginLeft:'2px'}}>{unit}</span>}</td>
+                      <td style={{padding:'3px 8px',borderBottom:'1px solid #eee',fontWeight:hi?700:400,color:hi?'#0d1b2a':'#333',textAlign:'right',fontSize:'12px'}}>{val}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1330,23 +1325,14 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
 
       </div>
 
-      {/* 리포트 푸터 */}
-      <div className="print-only" style={{margin:'8px 20px 14px',borderTop:'1pt solid #c9a84c',paddingTop:'6pt',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'8pt',color:'#555'}}>
-        {/* 왼쪽: 로고 + 상호 + 주소 */}
-        <div style={{display:'flex',alignItems:'center',gap:'8pt',flex:1}}>
-          {logoSrc && <img src={logoSrc} style={{height:'22pt',objectFit:'contain',flexShrink:0}} />}
-          <div style={{lineHeight:1.5}}>
-            {bizName && <div style={{fontWeight:700,fontSize:'9pt',color:'#0d1b2a'}}>{bizName}</div>}
-            {bizAddr && <div style={{color:'#777'}}>{bizAddr}</div>}
-          </div>
-        </div>
-        {/* 오른쪽: 담당자 + 연락처 */}
-        {(agentName||agentPhone) && (
-          <div style={{textAlign:'right',borderLeft:'0.5pt solid #ddd',paddingLeft:'10pt',marginLeft:'10pt',lineHeight:1.8,flexShrink:0}}>
-            {agentName  && <div style={{fontWeight:700,fontSize:'9pt',color:'#0d1b2a'}}>{agentName}</div>}
-            {agentPhone && <div style={{letterSpacing:'0.05em'}}>{agentPhone}</div>}
-          </div>
-        )}
+      {/* 리포트 푸터 — 1줄 정렬 */}
+      <div className="print-only" style={{margin:'8px 20px 14px',borderTop:'1pt solid #c9a84c',paddingTop:'6pt',display:'flex',alignItems:'center',fontSize:'8pt',color:'#555',gap:'0'}}>
+        {logoSrc && <img src={logoSrc} style={{height:'20pt',objectFit:'contain',marginRight:'8pt',flexShrink:0}} />}
+        {bizName && <span style={{fontWeight:700,color:'#0d1b2a',marginRight:'6pt'}}>{bizName}</span>}
+        {bizAddr && <span style={{color:'#777',marginRight:'6pt'}}>{bizAddr}</span>}
+        {(agentName||agentPhone) && <span style={{color:'#ccc',marginRight:'6pt'}}>|</span>}
+        {agentName  && <span style={{fontWeight:700,color:'#0d1b2a',marginRight:'6pt'}}>{agentName}</span>}
+        {agentPhone && <span style={{letterSpacing:'0.05em'}}>{agentPhone}</span>}
       </div>
     </div>
   );
