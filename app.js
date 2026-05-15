@@ -68,6 +68,8 @@ const R = {
 const PY = 3.3058;
 const py  = v => v ? (parseFloat(v) / PY).toFixed(1) : null;
 const m2  = v => (v != null && v !== '' && parseFloat(v) > 0)
+  ? py(v) + '평 (' + parseFloat(v).toFixed(0) + '㎡)' : '—';
+const pct = v => (v != null && v !== '' && parseFloat(v) > 0) ? parseFloat(v).toFixed(1) + '%' : '—';
 // 억/만원 혼합 포맷: 23,000만원 → 2억 3,000만원
 const fmtAmt = (manwon) => {
   const n = Math.round(parseFloat(manwon) || 0);
@@ -75,14 +77,10 @@ const fmtAmt = (manwon) => {
   if (n >= 10000) {
     const uk  = Math.floor(n / 10000);
     const man = n % 10000;
-    return man > 0
-      ? uk + '억 ' + man.toLocaleString() + '만원'
-      : uk + '억원';
+    return man > 0 ? uk + '억 ' + man.toLocaleString() + '만원' : uk + '억원';
   }
   return n.toLocaleString() + '만원';
 };
-  ? py(v) + '평 (약 ' + parseFloat(v).toFixed(1) + '㎡)' : '—';
-const pct = v => (v != null && v !== '' && parseFloat(v) > 0) ? parseFloat(v).toFixed(1) + '%' : '—';
 const dt  = v => {
   if (!v) return '—';
   const s = String(v).replace(/-/g, '');
