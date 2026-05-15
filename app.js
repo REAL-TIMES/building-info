@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.4.2';
+const VERSION = 'v1.4.4';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -299,7 +299,7 @@ function App() {
       {/* 인쇄 방향 동적 스타일 */}
       <style dangerouslySetInnerHTML={{__html:
         vw === 'report'
-          ? '@media print { @page { size: A4 portrait !important; margin: 10mm 12mm 12mm; } .report-card { page-break-after: always; break-after: page; } }'
+          ? '@media print { @page { size: A4 portrait !important; margin: 10mm 12mm 18mm; } .report-card { page-break-after: always; break-after: page; } }'
           : (vw === 'table' || printMode === 'landscape')
             ? '@media print { @page { size: A4 landscape !important; margin: 10mm 12mm 14mm; } .cg { grid-template-columns: 1fr 1fr 1fr !important; } }'
             : '@media print { @page { size: A4 portrait !important; margin: 12mm 14mm 16mm; } .cg { grid-template-columns: 1fr 1fr !important; } }'
@@ -1086,7 +1086,12 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
   const iSt  = { fontSize:'12px', padding:'6px 8px', border:'1px solid #e0dcd4', width:'100%', boxSizing:'border-box', resize:'vertical', fontFamily:"'Noto Sans KR',sans-serif", lineHeight:1.6 };
   const numSt = { fontSize:'12px', padding:'5px 8px', border:'1px solid #e0dcd4', width:'100%', boxSizing:'border-box', textAlign:'right' };
   const fmt  = v => v > 0 ? Math.round(v).toLocaleString() : '—';
-  const hd   = (label) => (<div style={{fontSize:'11px',fontWeight:600,color:'#0d1b2a',marginBottom:'6px',letterSpacing:'0.05em',borderBottom:'1px solid #e0dcd4',paddingBottom:'4px'}}>{label}</div>);
+  const hd   = (label, badge) => (
+    <div style={{fontSize:'11px',fontWeight:600,color:'#0d1b2a',marginBottom:'6px',letterSpacing:'0.05em',borderBottom:'1px solid #e0dcd4',paddingBottom:'4px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+      <span>{label}</span>
+      {badge && <span style={{fontSize:'9px',fontWeight:400,color:'#2471a3',background:'#eaf4fb',padding:'1px 7px',letterSpacing:'0',border:'0.5px solid #aad4ed'}}>{badge}</span>}
+    </div>
+  );
 
   return (
     <div className="report-card" style={{background:'white',marginBottom:'28px'}}>
@@ -1134,6 +1139,15 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                 <div className="print-only" style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px'}}>사진 없음</div>
               )}
             </div>
+            {/* 매매가 — 사진 바로 아래 */}
+            {e.price && parseFloat(e.price) > 0 && (
+              <div style={{background:'#0d1b2a',padding:'9px 14px',marginTop:'4px',display:'flex',alignItems:'baseline',justifyContent:'space-between'}}>
+                <span style={{fontSize:'8px',color:'#c9a84c',letterSpacing:'0.18em'}}>ASKING PRICE</span>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'22px',fontWeight:700,color:'white',lineHeight:1}}>
+                  {parseFloat(e.price).toLocaleString()}<span style={{fontSize:'12px',fontWeight:400,marginLeft:'2px',color:'#c9a84c'}}>억원</span>
+                </span>
+              </div>
+            )}
             {photos.length < 3 && (
               <label className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',cursor:'pointer',padding:'5px',border:'1px dashed #e0dcd4',background:'#fafaf8',fontSize:'10px',color:'#888',marginTop:'4px'}}>
                 📷 {photos.length===0 ? '사진 업로드 (최대 3장)' : '사진 추가 ('+photos.length+'/3)'}
@@ -1159,7 +1173,6 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                   ['층수',     '지상'+(mg.grndFlrCnt||0)+'층/지하'+(mg.ugrndFlrCnt||0)+'층'],
                   ['세대수',   mg.hhldCnt ? parseInt(mg.hhldCnt).toLocaleString()+'세대' : '—'],
                   ['사용승인', dt(mg.useAprDay) + (bldAge ? ' ('+bldAge+'년차)' : '')],
-                  ['매매가',   e.price ? parseFloat(e.price).toLocaleString()+'억원' : '—', true],
                 ].map(([k,v,big]) => (
                   <tr key={k}>
                     <td style={{padding:'4px 6px',background:big?'#fff3dc':'#f5f2eb',color:big?'#a05800':'#666',fontWeight:500,width:'62px',borderBottom:'1px solid #eee',whiteSpace:'nowrap',fontSize:'10px'}}>{k}</td>
@@ -1247,7 +1260,12 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
 
         {/* ── 신축·증축 여력 분석 ── */}
         <div style={{marginBottom:'10px'}}>
-          {hd('🏗 신축·증축 여력 분석')}
+          {hd('🏗 신축·증축 여력 분석',
+            extraArea === null ? null :
+            extraArea > 0
+              ? '증축 여력 ' + (extraArea/PY).toFixed(1) + '평 · ' + (currArea ? ((extraArea/parseFloat(currArea))*100).toFixed(0)+'% 추가 가능' : '')
+              : '현재 연면적 법정 최대 근접'
+          )}
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'8px',fontSize:'11px'}}>
             {/* 행1 */}
             <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
@@ -1301,18 +1319,6 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
             </div>
           </div>
           {/* 건물 노후도 — 사용승인 옆에 표시, 여기선 제거 */}
-          {/* 증축 여력 결과 */}
-          {extraArea !== null && extraArea > 0 && (
-            <div style={{background:'#f0fff4',padding:'8px 12px',border:'1px solid #a8d5b0',fontSize:'11px'}}>
-              <span style={{color:'#2e7d32',fontWeight:700}}>증축 여력: {(extraArea/PY).toFixed(1)}평 ({extraArea}㎡)</span>
-              {currArea && <span style={{color:'#666',marginLeft:'8px',fontSize:'10px'}}>현재 연면적의 {((extraArea/parseFloat(currArea))*100).toFixed(0)}% 추가 가능</span>}
-            </div>
-          )}
-          {extraArea !== null && extraArea <= 0 && (
-            <div style={{background:'#fff5f4',padding:'8px 12px',border:'1px solid #e8b4b0',fontSize:'11px',color:'#c0392b'}}>
-              현재 연면적이 법정 최대에 근접 — 신축 시 용적률 범위 내 계획 필요
-            </div>
-          )}
         </div>
 
         {/* ── 추가 설명 ── */}
