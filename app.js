@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.4.5';
+const VERSION = 'v1.4.6';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -146,8 +146,8 @@ function App() {
   const [showBiz,     setSB] = useState(false);
   const [bizName,     setBN] = useState('타임즈부동산중개');
   const [bizAddr,     setBA] = useState('서울특별시 서초구 반포동 반포프라자');
-  const [agentName,   setAN] = useState('');
-  const [agentPhone,  setAP] = useState('');
+  const [agentName,   setAN] = useState('성재윤');
+  const [agentPhone,  setAP] = useState('010-6655-5445');
   const [logoSrc,     setLG] = useState('');
 
   const up          = (id, d) => setE(p => p.map(e => e.id === id ? {...e, ...d} : e));
@@ -1141,11 +1141,11 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
             </div>
             {/* 매매가 — 사진 아래, 여백 확보 */}
             {e.price && parseFloat(e.price) > 0 && (
-              <div style={{marginTop:'10px',padding:'12px 16px',background:'#0d1b2a',borderLeft:'4px solid #c9a84c',display:'flex',alignItems:'baseline',justifyContent:'space-between'}}>
+              <div style={{marginTop:'10px',padding:'13px 16px',background:'#0d1b2a',borderLeft:'4px solid #c9a84c',display:'flex',alignItems:'center',justifyContent:'space-between',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
                 <span style={{fontSize:'9px',color:'#c9a84c',letterSpacing:'0.2em',fontWeight:500}}>ASKING PRICE</span>
-                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'30px',fontWeight:700,color:'white',lineHeight:1,letterSpacing:'-0.01em'}}>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'36px',fontWeight:700,color:'white',lineHeight:1,letterSpacing:'-0.01em'}}>
                   {parseFloat(e.price).toLocaleString()}
-                  <span style={{fontSize:'15px',fontWeight:400,marginLeft:'4px',color:'#c9a84c'}}>억원</span>
+                  <span style={{fontSize:'17px',fontWeight:400,marginLeft:'5px',color:'#c9a84c'}}>억원</span>
                 </span>
               </div>
             )}
