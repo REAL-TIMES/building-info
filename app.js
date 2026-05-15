@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.4.4';
+const VERSION = 'v1.4.5';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -1139,12 +1139,13 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                 <div className="print-only" style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px'}}>사진 없음</div>
               )}
             </div>
-            {/* 매매가 — 사진 바로 아래 */}
+            {/* 매매가 — 사진 아래, 여백 확보 */}
             {e.price && parseFloat(e.price) > 0 && (
-              <div style={{background:'#0d1b2a',padding:'9px 14px',marginTop:'4px',display:'flex',alignItems:'baseline',justifyContent:'space-between'}}>
-                <span style={{fontSize:'8px',color:'#c9a84c',letterSpacing:'0.18em'}}>ASKING PRICE</span>
-                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'22px',fontWeight:700,color:'white',lineHeight:1}}>
-                  {parseFloat(e.price).toLocaleString()}<span style={{fontSize:'12px',fontWeight:400,marginLeft:'2px',color:'#c9a84c'}}>억원</span>
+              <div style={{marginTop:'10px',padding:'12px 16px',background:'#0d1b2a',borderLeft:'4px solid #c9a84c',display:'flex',alignItems:'baseline',justifyContent:'space-between'}}>
+                <span style={{fontSize:'9px',color:'#c9a84c',letterSpacing:'0.2em',fontWeight:500}}>ASKING PRICE</span>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'30px',fontWeight:700,color:'white',lineHeight:1,letterSpacing:'-0.01em'}}>
+                  {parseFloat(e.price).toLocaleString()}
+                  <span style={{fontSize:'15px',fontWeight:400,marginLeft:'4px',color:'#c9a84c'}}>억원</span>
                 </span>
               </div>
             )}
@@ -1337,7 +1338,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           )}
           {/* 인쇄: 2열 레이아웃, break-inside:avoid */}
           {e.notes && (
-            <div className="print-only" style={{columnCount:2,columnGap:'16px',fontSize:'10px',color:'#1a1a2e',lineHeight:1.65,padding:'3px 0',breakInside:'avoid',maxHeight:'72px',overflow:'hidden'}}>
+            <div className="print-only" style={{columnCount:2,columnGap:'16px',fontSize:'11px',color:'#1a1a2e',lineHeight:1.8,padding:'4px 0',breakInside:'avoid',maxHeight:'80px',overflow:'hidden'}}>
               {e.notes.split('\n').filter(l => l.trim()).map((line, idx) => (
                 <div key={idx} style={{display:'flex',gap:'5px',marginBottom:'1px',breakInside:'avoid',pageBreakInside:'avoid'}}>
                   <span style={{color:'#c9a84c',fontWeight:700,flexShrink:0}}>•</span>
