@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.5.4';
+const VERSION = 'v1.5.5';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -322,17 +322,7 @@ function App() {
       }} />
 
       {/* 인쇄 헤더 — 카드 뷰에서만 표시 */}
-      {vw !== 'table' && vw !== 'report' && (
-      <div className="ph" style={{display:'none',padding:'24px 28px 0'}}>
-        <div style={{borderBottom:'2px solid #0d1b2a',paddingBottom:'14px',marginBottom:'20px',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
-          <div>
-            <div style={{fontSize:'9px',letterSpacing:'0.15em',color:'#c9a84c'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'26px',fontWeight:500}}>{reportTitle || '건축물대장 비교 보고서'}</div>
-          </div>
-          <div style={{textAlign:'right',fontSize:'11px',color:'#888'}}>{reportDate} · 총 {rE.filter(e=>e.printSel).length}건</div>
-        </div>
-      </div>
-      )}
+      {/* 카드 인쇄 헤더는 CSS @top-left/@top-center/@top-right 마진박스로 처리 (DOM 제거) */}
 
       {/* 결과 영역 */}
       <main style={{padding:'10px 28px 48px',maxWidth:'1280px',margin:'0 auto'}}>
@@ -934,17 +924,10 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
                   </label>
                 )}
                 <div>
-                  <div style={{display:'flex',alignItems:'center',gap:'4px',marginBottom:'2px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
                     <span style={{background:'#c9a84c',color:'white',minWidth:'16px',height:'16px',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700,flexShrink:0}}>{startIdx+i+1}</span>
                     <span style={{fontWeight:600,fontSize: isP ? '8.5pt' : '12px'}}>{e.alias||(e.res&&e.res.bldNm)||('건물'+(startIdx+i+1))}</span>
                   </div>
-                  {e.res && e.res.platPlc && (() => {
-                    // 동/읍/면/리/가 다음에서 줄바꿈
-                    const m = e.res.platPlc.match(/^(.*?[동읍면리가로길])\s+(.+)$/);
-                    return m
-                      ? <div style={{fontSize: isP ? '7.5pt' : '10px',color:'#9ab',lineHeight:1.3}}>{m[1]}<br/>{m[2]}</div>
-                      : <div style={{fontSize: isP ? '7.5pt' : '10px',color:'#9ab',lineHeight:1.3}}>{e.res.platPlc}</div>;
-                  })()}
                 </div>
               </div>
             </th>
