@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.5.2';
+const VERSION = 'v1.5.3';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -1130,6 +1130,9 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
 
           {/* 좌: 사진 + 매매가 — flex 컬럼으로 매매가를 사용승인 라인에 맞춤 */}
           <div style={{overflow:'hidden',minWidth:0,display:'flex',flexDirection:'column'}}>
+
+            {/* 건물기본정보 헤더(hd)와 동일 높이 투명 스페이서 → 사진이 주용도 라인에 정렬 */}
+            <div aria-hidden="true" style={{visibility:'hidden',fontSize:'11px',fontWeight:600,paddingBottom:'4px',marginBottom:'6px',borderBottom:'1px solid transparent',letterSpacing:'0.05em',flexShrink:0}}>X</div>
 
             {/* 사진 컨테이너 — 175px 고정 */}
             <div style={{width:'100%',height:'175px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',position:'relative',flexShrink:0}}>
