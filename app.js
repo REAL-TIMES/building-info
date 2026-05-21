@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.5.1';
+const VERSION = 'v1.5.2';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -301,13 +301,18 @@ function App() {
         vw === 'report'
           ? '@media print { @page { size: A4 portrait !important; margin: 10mm 12mm 18mm; } .report-card { page-break-after: always; break-after: page; } }'
           : (vw === 'table' || printMode === 'landscape')
-            ? '@media print { @page { size: A4 landscape !important; margin: 10mm 12mm 14mm; } .cg { grid-template-columns: 1fr 1fr 1fr !important; } }'
-            : ('@media print { @page { size: A4 portrait !important; margin: 22mm 10mm 16mm;'
+            ? ('@media print { @page { size: A4 landscape !important; margin: 20mm 10mm 14mm;'
               + ' @top-left { content: "TIMES REAL ESTATE · 타임즈부동산중개"; font-size: 8pt; color: #c9a84c; font-family: sans-serif; letter-spacing: 0.1em; }'
               + ' @top-right { content: "' + (reportTitle||'건축물대장 비교 보고서') + '  ' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; }'
-              + ' @bottom-left { content: "' + (bizName ? '"' + bizName + '"' : '') + (bizAddr ? '  ' + bizAddr : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
+              + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
+              + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
+              + ' } .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr 1fr !important; } }')
+            : ('@media print { @page { size: A4 portrait !important; margin: 20mm 10mm 16mm;'
+              + ' @top-left { content: "TIMES REAL ESTATE · 타임즈부동산중개"; font-size: 8pt; color: #c9a84c; font-family: sans-serif; letter-spacing: 0.1em; }'
+              + ' @top-right { content: "' + (reportTitle||'건축물대장 비교 보고서') + '  ' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; }'
+              + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
               + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
-              + ' } .cg { grid-template-columns: 1fr 1fr !important; } .pci { font-size: 9pt !important; } .pci table td, .pci table th { padding: 3pt 4pt !important; font-size: 8pt !important; } }')
+              + ' } .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr !important; } .pci { font-size: 9pt !important; } .pci table td, .pci table th { padding: 3pt 4pt !important; font-size: 8pt !important; } }')
       }} />
 
       {/* 인쇄 헤더 — 카드 뷰에서만 표시 */}
@@ -1123,11 +1128,11 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
         {/* ── 2열: 좌(건물사진) / 우(건물기본정보) ── */}
         <div style={{display:'grid',gridTemplateColumns:'260px 1fr',gap:'24px',marginBottom:'14px',overflow:'hidden'}}>
 
-          {/* 좌: 사진 + 매매가 */}
-          <div style={{overflow:'hidden',minWidth:0}}>
+          {/* 좌: 사진 + 매매가 — flex 컬럼으로 매매가를 사용승인 라인에 맞춤 */}
+          <div style={{overflow:'hidden',minWidth:0,display:'flex',flexDirection:'column'}}>
 
-            {/* 사진 컨테이너 — 175px 고정, overflow:hidden이 이제 정상 작동 */}
-            <div style={{width:'100%',height:'175px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',position:'relative'}}>
+            {/* 사진 컨테이너 — 175px 고정 */}
+            <div style={{width:'100%',height:'175px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',position:'relative',flexShrink:0}}>
               {photos.length === 0 && (
                 <div className="print-only" style={{height:'175px',display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px'}}>사진 없음</div>
               )}
@@ -1150,19 +1155,19 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                   </div>
                 </div>
               )}
-              {/* 삭제 버튼 — 화면 전용 */}
+              {/* 삭제 버튼 */}
               {photos.map((_, idx) => (
                 <button key={idx} className="no-print" onClick={() => rmPhoto(e.id, idx)}
-                  style={{position:'absolute',top:'4px',right: idx===0 ? (photos.length>=2?'calc(50% + 4px)':'4px') : '4px',
+                  style={{position:'absolute',top:'4px',right:idx===0?(photos.length>=2?'calc(50% + 4px)':'4px'):'4px',
                     background:'rgba(0,0,0,0.55)',color:'white',border:'none',cursor:'pointer',fontSize:'11px',padding:'1px 6px',lineHeight:1.4,zIndex:10}}>
                   {photos.length > 1 ? (idx+1)+'×' : '×'}
                 </button>
               ))}
             </div>
 
-            {/* 사진 업로드 버튼 */}
+            {/* 사진 업로드 버튼 (화면 전용) */}
             {photos.length < 3 && (
-              <label className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',cursor:'pointer',padding:'5px',border:'1px dashed #e0dcd4',background:'#fafaf8',fontSize:'10px',color:'#888',marginTop:'4px'}}>
+              <label className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',cursor:'pointer',padding:'5px',border:'1px dashed #e0dcd4',background:'#fafaf8',fontSize:'10px',color:'#888',marginTop:'4px',flexShrink:0}}>
                 📷 {photos.length===0 ? '사진 업로드 (최대 3장)' : '사진 추가 ('+photos.length+'/3)'}
                 <input type="file" accept="image/*" multiple style={{display:'none'}} onChange={ev => {
                   Array.from(ev.target.files).slice(0,3-photos.length).forEach(f=>{const r=new FileReader();r.onload=ev2=>addPhoto(e.id,ev2.target.result);r.readAsDataURL(f);});
@@ -1170,9 +1175,9 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
               </label>
             )}
 
-            {/* 매매가 — 사진 아래 */}
+            {/* 매매가 — marginTop:auto로 사용승인 라인 높이에 자동 정렬 */}
             {e.price && parseFloat(e.price) > 0 && (
-              <div style={{marginTop:'10px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
+              <div style={{marginTop:'auto',paddingTop:'8px',flexShrink:0,WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
                 <div style={{padding:'7px 12px 8px',background:'#0d1b2a',borderLeft:'3px solid #c9a84c'}}>
                   <div style={{fontSize:'7px',color:'#c9a84c',letterSpacing:'0.25em',fontWeight:600,marginBottom:'3px'}}>ASKING PRICE</div>
                   <div style={{textAlign:'right',lineHeight:1}}>
