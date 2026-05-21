@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.4.9';
+const VERSION = 'v1.5.0';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -1123,38 +1123,82 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
         {/* ── 2열: 좌(건물사진) / 우(건물기본정보) ── */}
         <div style={{display:'grid',gridTemplateColumns:'260px 1fr',gap:'24px',marginBottom:'14px',overflow:'hidden'}}>
 
-          {/* 좌: 사진 (flex 컬럼 — 매매가를 사용승인 라인 높이에 맞춰 하단 정렬) */}
-          <div style={{overflow:'hidden',minWidth:0,display:'flex',flexDirection:'column'}}>
-            <div style={{height:'175px',overflow:'hidden',background:'#f0ede6',border:'1px solid #e0dcd4',position:'relative',maxHeight:'175px',flexShrink:0}}>
+          {/* 좌: 사진 + 매매가 — display:block (flex 제거, 인쇄 안정) */}
+          <div style={{overflow:'hidden',minWidth:0,display:'block'}}>
+
+            {/* 사진 컨테이너 — clipPath로 인쇄 시 강제 클리핑 */}
+            <div style={{
+              width:'100%', height:'175px', display:'block',
+              overflow:'hidden', maxHeight:'175px',
+              clipPath:'inset(0px)', WebkitClipPath:'inset(0px)',
+              background:'#f0ede6', border:'1px solid #e0dcd4'
+            }}>
               {photos.length > 0 ? (
-                <div style={{display:'grid',height:'175px',
-                  gridTemplateColumns:photos.length===1?'1fr':'1fr 1fr',
-                  gridTemplateRows:photos.length===3?'1fr 1fr':'1fr',gap:'2px'}}>
-                  {photos.map((src, idx) => (
-                    <div key={idx} style={{position:'relative',overflow:'hidden',maxHeight:photos.length===3&&idx===0?'175px':'87px',
-                      gridRow:photos.length===3&&idx===0?'1/3':'auto'}}>
-                      <img src={src} style={{width:'100%',height:photos.length===3&&idx===0?'175px':'87px',maxHeight:photos.length===3&&idx===0?'175px':'87px',objectFit:'cover',display:'block'}} />
-                      <button className="no-print" onClick={() => rmPhoto(e.id, idx)}
-                        style={{position:'absolute',top:'2px',right:'2px',background:'rgba(0,0,0,0.55)',color:'white',border:'none',cursor:'pointer',fontSize:'11px',padding:'1px 5px',lineHeight:1}}>×</button>
-                    </div>
-                  ))}
-                </div>
+                <table style={{width:'100%', height:'175px', borderCollapse:'collapse', tableLayout:'fixed'}}>
+                  <tbody><tr>
+                    {photos.length === 1 && (
+                      <td style={{padding:0, height:'175px', overflow:'hidden'}}>
+                        <img src={photos[0]} style={{width:'100%',height:'175px',objectFit:'cover',display:'block'}} />
+                      </td>
+                    )}
+                    {photos.length === 2 && photos.map((src,idx) => (
+                      <td key={idx} style={{padding:0, height:'175px', overflow:'hidden', width:'50%'}}>
+                        <img src={src} style={{width:'100%',height:'175px',objectFit:'cover',display:'block'}} />
+                      </td>
+                    ))}
+                    {photos.length >= 3 && (
+                      <>
+                        <td style={{padding:0, height:'175px', overflow:'hidden', width:'50%'}}>
+                          <img src={photos[0]} style={{width:'100%',height:'175px',objectFit:'cover',display:'block'}} />
+                        </td>
+                        <td style={{padding:0, overflow:'hidden', width:'50%', verticalAlign:'top'}}>
+                          <table style={{width:'100%', borderCollapse:'collapse'}}>
+                            <tbody>
+                              <tr><td style={{padding:0, height:'87px', overflow:'hidden', display:'block'}}>
+                                <img src={photos[1]} style={{width:'100%',height:'87px',objectFit:'cover',display:'block'}} />
+                              </td></tr>
+                              <tr><td style={{padding:'1px 0 0', height:'87px', overflow:'hidden', display:'block'}}>
+                                <img src={photos[2]} style={{width:'100%',height:'87px',objectFit:'cover',display:'block'}} />
+                              </td></tr>
+                            </tbody>
+                          </table>
+                        </td>
+                      </>
+                    )}
+                  </tr></tbody>
+                </table>
               ) : (
-                <div className="print-only" style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px'}}>사진 없음</div>
+                <div className="print-only" style={{height:'175px',display:'flex',alignItems:'center',justifyContent:'center',color:'#ccc',fontSize:'11px'}}>사진 없음</div>
+              )}
+              {/* 삭제 버튼 오버레이 (화면 전용) */}
+              {photos.length > 0 && (
+                <div className="no-print" style={{position:'relative',top:'-175px',height:'175px',pointerEvents:'none'}}>
+                  <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,display:'flex',gap:'2px',pointerEvents:'none'}}>
+                    {photos.map((_, idx) => (
+                      <div key={idx} style={{flex:1,position:'relative',pointerEvents:'auto'}}>
+                        <button onClick={() => rmPhoto(e.id, idx)}
+                          style={{position:'absolute',top:'2px',right:'2px',background:'rgba(0,0,0,0.55)',color:'white',border:'none',cursor:'pointer',fontSize:'11px',padding:'1px 5px',lineHeight:1,zIndex:10}}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
+
+            {/* 사진 업로드 버튼 */}
             {photos.length < 3 && (
-              <label className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',cursor:'pointer',padding:'5px',border:'1px dashed #e0dcd4',background:'#fafaf8',fontSize:'10px',color:'#888',marginTop:'4px',flexShrink:0}}>
+              <label className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',cursor:'pointer',padding:'5px',border:'1px dashed #e0dcd4',background:'#fafaf8',fontSize:'10px',color:'#888',marginTop:'4px'}}>
                 📷 {photos.length===0 ? '사진 업로드 (최대 3장)' : '사진 추가 ('+photos.length+'/3)'}
                 <input type="file" accept="image/*" multiple style={{display:'none'}} onChange={ev => {
                   Array.from(ev.target.files).slice(0,3-photos.length).forEach(f=>{const r=new FileReader();r.onload=ev2=>addPhoto(e.id,ev2.target.result);r.readAsDataURL(f);});
                 }} />
               </label>
             )}
-            {/* 매매가 — marginTop:auto로 건물정보 테이블 하단(사용승인 라인)에 맞게 정렬 */}
+
+            {/* 매매가 — 사진 아래 고정 */}
             {e.price && parseFloat(e.price) > 0 && (
-              <div style={{marginTop:'auto',paddingTop:'4px',flexShrink:0}}>
-                <div style={{padding:'7px 12px 8px',background:'#0d1b2a',borderLeft:'3px solid #c9a84c',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
+              <div style={{marginTop:'10px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
+                <div style={{padding:'7px 12px 8px',background:'#0d1b2a',borderLeft:'3px solid #c9a84c'}}>
                   <div style={{fontSize:'7px',color:'#c9a84c',letterSpacing:'0.25em',fontWeight:600,marginBottom:'3px'}}>ASKING PRICE</div>
                   <div style={{textAlign:'right',lineHeight:1}}>
                     <span style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',Arial,sans-serif",fontSize:'24px',fontWeight:700,color:'white',letterSpacing:'-0.02em'}}>
@@ -1166,7 +1210,6 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
               </div>
             )}
           </div>
-
 
           {/* 우: 건물 기본 정보 */}
           <div style={{overflow:'hidden',minWidth:0}}>
