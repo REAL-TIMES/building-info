@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.5.3';
+const VERSION = 'v1.5.4';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -94,7 +94,6 @@ const parseBJ = str => {
 
 // ── 비교표 항목 (높이 제거, 용도지역 추가) ──
 const COLS = [
-  { l:'주소',            f: i => i.platPlc || '—' },
   { l:'주용도',          f: i => [i.mainPurpsCdNm, i.etcPurps].filter(Boolean).join(' / ') || '—' },
   { l:'용도지역',        f: i => i.jiyukCdNm || '—' },
   { l:'주구조',          f: i => i.strctCdNm || i.mainStrctCdNm || '—' },
@@ -300,19 +299,26 @@ function App() {
       <style dangerouslySetInnerHTML={{__html:
         vw === 'report'
           ? '@media print { @page { size: A4 portrait !important; margin: 10mm 12mm 18mm; } .report-card { page-break-after: always; break-after: page; } }'
-          : (vw === 'table' || printMode === 'landscape')
-            ? ('@media print { @page { size: A4 landscape !important; margin: 20mm 10mm 14mm;'
-              + ' @top-left { content: "TIMES REAL ESTATE · 타임즈부동산중개"; font-size: 8pt; color: #c9a84c; font-family: sans-serif; letter-spacing: 0.1em; }'
-              + ' @top-right { content: "' + (reportTitle||'건축물대장 비교 보고서') + '  ' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; }'
+          : vw === 'table'
+            ? ('@media print { @page { size: A4 landscape !important; margin: 10mm 10mm 16mm;'
               + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
               + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
-              + ' } .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr 1fr !important; } }')
-            : ('@media print { @page { size: A4 portrait !important; margin: 20mm 10mm 16mm;'
-              + ' @top-left { content: "TIMES REAL ESTATE · 타임즈부동산중개"; font-size: 8pt; color: #c9a84c; font-family: sans-serif; letter-spacing: 0.1em; }'
-              + ' @top-right { content: "' + (reportTitle||'건축물대장 비교 보고서') + '  ' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; }'
-              + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
-              + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
-              + ' } .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr !important; } .pci { font-size: 9pt !important; } .pci table td, .pci table th { padding: 3pt 4pt !important; font-size: 8pt !important; } }')
+              + ' } }')
+            : printMode === 'landscape'
+              ? ('@media print { @page { size: A4 landscape !important; margin: 20mm 10mm 16mm;'
+                + ' @top-left { content: "' + (reportTitle||'건축물대장 비교 보고서') + '"; font-size: 18pt; font-weight: bold; color: #0d1b2a; font-family: "Cormorant Garamond", serif; }'
+                + ' @top-center { content: "TIMES REAL ESTATE · 타임즈부동산중개"; font-size: 7pt; color: #c9a84c; font-family: sans-serif; }'
+                + ' @top-right { content: "' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; }'
+                + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
+                + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
+                + ' } .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr 1fr !important; } }')
+              : ('@media print { @page { size: A4 portrait !important; margin: 20mm 10mm 16mm;'
+                + ' @top-left { content: "' + (reportTitle||'건축물대장 비교 보고서') + '"; font-size: 18pt; font-weight: bold; color: #0d1b2a; font-family: "Cormorant Garamond", serif; }'
+                + ' @top-center { content: "TIMES REAL ESTATE · 타임즈부동산중개"; font-size: 7pt; color: #c9a84c; font-family: sans-serif; }'
+                + ' @top-right { content: "' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; }'
+                + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
+                + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
+                + ' } .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr !important; } .pci { font-size: 9pt !important; } .pci table td, .pci table th { padding: 3pt 4pt !important; font-size: 8pt !important; } }')
       }} />
 
       {/* 인쇄 헤더 — 카드 뷰에서만 표시 */}
@@ -932,7 +938,13 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
                     <span style={{background:'#c9a84c',color:'white',minWidth:'16px',height:'16px',display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:700,flexShrink:0}}>{startIdx+i+1}</span>
                     <span style={{fontWeight:600,fontSize: isP ? '8.5pt' : '12px'}}>{e.alias||(e.res&&e.res.bldNm)||('건물'+(startIdx+i+1))}</span>
                   </div>
-                  {e.res && e.res.platPlc && <div style={{fontSize: isP ? '7.5pt' : '10px',color:'#9ab',lineHeight:1.3}}>{e.res.platPlc}</div>}
+                  {e.res && e.res.platPlc && (() => {
+                    // 동/읍/면/리/가 다음에서 줄바꿈
+                    const m = e.res.platPlc.match(/^(.*?[동읍면리가로길])\s+(.+)$/);
+                    return m
+                      ? <div style={{fontSize: isP ? '7.5pt' : '10px',color:'#9ab',lineHeight:1.3}}>{m[1]}<br/>{m[2]}</div>
+                      : <div style={{fontSize: isP ? '7.5pt' : '10px',color:'#9ab',lineHeight:1.3}}>{e.res.platPlc}</div>;
+                  })()}
                 </div>
               </div>
             </th>
@@ -961,7 +973,7 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
           <div style={{borderBottom:'1.5pt solid #0d1b2a',paddingBottom:'6pt',marginBottom:'8pt',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
             <div>
               <div style={{fontSize:'7pt',letterSpacing:'0.12em',color:'#c9a84c'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'15pt',fontWeight:500,lineHeight:1.2}}>{reportTitle||'건축물대장 비교 보고서'}</div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'22pt',fontWeight:600,lineHeight:1.1}}>{reportTitle||'건축물대장 비교 보고서'}</div>
             </div>
             <div style={{textAlign:'right',fontSize:'8pt',color:'#888'}}>
               {reportDate}&nbsp;·&nbsp;총 {totalSel}건
@@ -978,7 +990,7 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
             {buildHead(chunk.items, false, chunk.startIdx, true)}
             {buildRows(chunk.items, true)}
           </table>
-          <PrintFooter bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />
+          {/* 바닥글은 CSS @bottom-* 마진박스로 처리 */}
         </div>
       ))}
     </>
