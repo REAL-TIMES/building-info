@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.5.5';
+const VERSION = 'v1.5.6';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -325,7 +325,7 @@ function App() {
       {/* 카드 인쇄 헤더는 CSS @top-left/@top-center/@top-right 마진박스로 처리 (DOM 제거) */}
 
       {/* 결과 영역 */}
-      <main style={{padding:'10px 28px 48px',maxWidth:'1280px',margin:'0 auto'}}>
+      <main style={{padding:'10px 28px 48px',maxWidth:'1280px',margin:'0 auto'}} className="print-main">
         {!hasR && (
           <div style={{textAlign:'center',padding:'80px 0',color:'#ccc'}}>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'28px',marginBottom:'10px'}}>건물을 조회하면 결과가 표시됩니다</div>
