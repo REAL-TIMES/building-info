@@ -4,7 +4,7 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.5.6';
+const VERSION = 'v1.5.7';
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -311,14 +311,14 @@ function App() {
                 + ' @top-right { content: "' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; }'
                 + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
                 + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
-                + ' } .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr 1fr !important; } }')
+                + ' } .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr 1fr !important; padding-top: 0 !important; } }')
               : ('@media print { @page { size: A4 portrait !important; margin: 20mm 10mm 16mm;'
                 + ' @top-left { content: "' + (reportTitle||'건축물대장 비교 보고서') + '"; font-size: 18pt; font-weight: bold; color: #0d1b2a; font-family: "Cormorant Garamond", serif; }'
                 + ' @top-center { content: "TIMES REAL ESTATE · 타임즈부동산중개"; font-size: 7pt; color: #c9a84c; font-family: sans-serif; }'
                 + ' @top-right { content: "' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; }'
                 + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
                 + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
-                + ' } .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr !important; } .pci { font-size: 9pt !important; } .pci table td, .pci table th { padding: 3pt 4pt !important; font-size: 8pt !important; } }')
+                + ' } .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr !important; padding-top: 0 !important; } .pci { font-size: 9pt !important; } .pci table td, .pci table th { padding: 3pt 4pt !important; font-size: 8pt !important; } }')
       }} />
 
       {/* 인쇄 헤더 — 카드 뷰에서만 표시 */}
@@ -334,7 +334,7 @@ function App() {
         )}
         {hasR && vw==='cards' && (
           <>
-            <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px'}}>
+            <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px',paddingBottom:'0'}}>
               {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} onManual={upManual} />)}
             </div>
 
@@ -950,7 +950,8 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
       {/* 인쇄: 선택 항목 페이지 분할 */}
       {chunks.map((chunk, ci) => (
         <div key={ci} className="print-only"
-          style={{pageBreakBefore: ci>0 ? 'always' : 'auto', breakBefore: ci>0 ? 'page' : 'auto'}}>
+          style={{pageBreakBefore: ci>0 ? 'always' : 'auto', breakBefore: ci>0 ? 'page' : 'auto',
+                  paddingTop: ci>0 ? '0' : '0'}}>
 
           {/* 각 페이지 자체 헤더 */}
           <div style={{borderBottom:'1.5pt solid #0d1b2a',paddingBottom:'6pt',marginBottom:'8pt',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
@@ -1118,7 +1119,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
         </div>
       </div>
 
-      <div style={{padding:'16px 20px'}}>
+      <div style={{padding:'22px 20px'}}>
 
         {/* ── 2열: 좌(건물사진) / 우(건물기본정보) ── */}
         <div style={{display:'grid',gridTemplateColumns:'260px 1fr',gap:'24px',marginBottom:'14px',overflow:'hidden'}}>
