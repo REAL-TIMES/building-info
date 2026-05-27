@@ -35,7 +35,10 @@
       .print-hide  { display: none !important; }
       .print-only  { display: block !important; }
       .ph   { display: block !important; page-break-after: avoid; break-after: avoid; }
-      body  { background: white; }
+      body  { background: white; margin: 0 !important; padding: 0 !important; }
+      /* 1페이지와 2페이지 인쇄 시작 위치 통일 — main의 padding-top/bottom 제거 */
+      main, .print-main  { padding-top: 0 !important; padding-bottom: 0 !important; margin-top: 0 !important; margin-bottom: 0 !important; }
+      header, nav, footer { display: none !important; }
       @page {
         @bottom-center {
           content: "- " counter(page) " / " counter(pages) " -";
