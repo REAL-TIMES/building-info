@@ -4,10 +4,10 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.7.7';
-// v1.7.7: 카드 인쇄 헤더 정돈(제목+회사명·날짜)·카드 잘림방지(break-inside)·리포트헤더 상단 작성일/회사명 라인 분리
-// v1.7.6: 리포트헤더 좌우배치·비교표 주소 줄바꿈·행높이↑
-// v1.7.x: 인쇄 배경/푸터·sticky·수정버튼·자동저장·고딕폰트·Supabase DB
+const VERSION = 'v1.7.8';
+// v1.7.8: 카드 인쇄 빈공간 베이지 제거(흰배경 강제)·카드 잘림방지 강화
+// v1.7.7: 카드 인쇄 헤더 정돈·리포트헤더 상단 작성일/회사명 라인
+// v1.7.x: 인쇄 레이아웃·sticky·수정버튼·자동저장·고딕폰트·Supabase DB
 
 const { useState } = React;
 
@@ -709,15 +709,19 @@ function App() {
                 + ' @top-right { content: "' + (bizName||'타임즈부동산중개') + '   ·   ' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; vertical-align: bottom; }'
                 + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
                 + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
-                + ' } .print-main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; }'
-                + ' .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr 1fr !important; padding-top: 0 !important; gap: 10px !important; } .pci { break-inside: avoid; page-break-inside: avoid; } }')
+                + ' } html, body { background: #ffffff !important; }'
+                + ' .print-main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; background: #ffffff !important; }'
+                + ' .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr 1fr !important; padding-top: 0 !important; gap: 10px !important; background: #ffffff !important; }'
+                + ' .pci { break-inside: avoid !important; page-break-inside: avoid !important; background: #ffffff !important; } }')
               : ('@media print { @page { size: A4 portrait !important; margin: 16mm 10mm 14mm;'
                 + ' @top-left { content: "' + (reportTitle||'건축물대장 비교') + '"; font-size: 15pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; vertical-align: bottom; }'
                 + ' @top-right { content: "' + (bizName||'타임즈부동산중개') + '   ·   ' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; vertical-align: bottom; }'
                 + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
                 + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
-                + ' } .print-main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; }'
-                + ' .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr !important; padding-top: 0 !important; gap: 10px !important; } .pci { font-size: 9pt !important; break-inside: avoid; page-break-inside: avoid; } .pci table td, .pci table th { padding: 3pt 4pt !important; font-size: 8pt !important; } }')
+                + ' } html, body { background: #ffffff !important; }'
+                + ' .print-main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; background: #ffffff !important; }'
+                + ' .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr !important; padding-top: 0 !important; gap: 10px !important; background: #ffffff !important; }'
+                + ' .pci { font-size: 9pt !important; break-inside: avoid !important; page-break-inside: avoid !important; background: #ffffff !important; } .pci table td, .pci table th { padding: 3pt 4pt !important; font-size: 8pt !important; } }')
       }} />
 
       {/* 인쇄 헤더 — 카드 뷰에서만 표시 */}
