@@ -4,9 +4,9 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.6.0';
-// v1.6.0: Supabase DB 연동 — 저장·불러오기·목록·삭제 (Vercel 환경변수, 브라우저 키 입력 불필요)
-// v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
+const VERSION = 'v1.6.1';
+// v1.6.1: 출력정보(로고·상호·담당자 등) Supabase app_config 자동 저장/불러오기
+// v1.6.0: Supabase DB 연동 — 저장·불러오기·목록·삭제
 
 const { useState } = React;
 
@@ -151,11 +151,12 @@ function App() {
   const [dbSaving,    setDbSaving]  = useState({});     // {id: true} 저장 중
   const [dbMsg,       setDbMsg]     = useState('');     // 피드백 메시지
   const [showDbPanel, setShowDb]    = useState(false);  // 저장 목록 패널
-  const [bizName,     setBN] = useState('타임즈부동산중개');
-  const [bizAddr,     setBA] = useState('서울특별시 서초구 반포동 반포프라자');
-  const [agentName,   setAN] = useState('성재윤');
-  const [agentPhone,  setAP] = useState('010-6655-5445');
+  const [bizName,     setBN] = useState('');
+  const [bizAddr,     setBA] = useState('');
+  const [agentName,   setAN] = useState('');
+  const [agentPhone,  setAP] = useState('');
   const [logoSrc,     setLG] = useState('');
+  const [configLoaded, setCL] = useState(false);  // DB에서 불러왔는지 여부
 
   const up          = (id, d) => setE(p => p.map(e => e.id === id ? {...e, ...d} : e));
   const upManual    = (id, field, val) => setE(p => p.map(e => e.id === id ? {...e, manual:{...(e.manual||{}), [field]:val}} : e));
@@ -280,6 +281,57 @@ function App() {
     const t = setTimeout(() => setDbMsg(''), 4000);
     return () => clearTimeout(t);
   }, [dbMsg]);
+
+  // ── 출력 정보 DB 불러오기 ──
+  const configLoad = async () => {
+    try {
+      const res = await fetch('/api/db?action=config-get&key=building-info');
+      const d = await res.json();
+      if (d.data) {
+        if (d.data.bizName   !== undefined) setBN(d.data.bizName);
+        if (d.data.bizAddr   !== undefined) setBA(d.data.bizAddr);
+        if (d.data.agentName !== undefined) setAN(d.data.agentName);
+        if (d.data.agentPhone!== undefined) setAP(d.data.agentPhone);
+        if (d.data.logoSrc   !== undefined) setLG(d.data.logoSrc);
+      } else {
+        // DB에 없으면 기본값 세팅
+        setBN('타임즈부동산중개');
+        setBA('서울특별시 서초구 반포동 반포프라자');
+        setAN('성재윤');
+        setAP('010-6655-5445');
+      }
+      setCL(true);
+    } catch(e) {
+      // 네트워크 오류 시 기본값
+      setBN('타임즈부동산중개');
+      setBA('서울특별시 서초구 반포동 반포프라자');
+      setAN('성재윤');
+      setAP('010-6655-5445');
+      setCL(true);
+    }
+  };
+
+  // ── 출력 정보 DB 저장 ──
+  const configSave = async () => {
+    try {
+      await fetch('/api/db?action=config-set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'building-info',
+          data: { bizName, bizAddr, agentName, agentPhone, logoSrc }
+        })
+      });
+      setDbMsg('✅ 출력 정보가 저장되었습니다');
+    } catch(e) {
+      setDbMsg('❌ 저장 실패: ' + e.message);
+    }
+  };
+
+  // ── 앱 시작 시 자동으로 출력 정보 불러오기 ──
+  React.useEffect(() => {
+    configLoad();
+  }, []);
 
   // ── 주소 → 좌표 자동 지오코딩 (Nominatim) ──
   const geocode = async (id, addr) => {
@@ -560,8 +612,9 @@ function App() {
         <div style={{maxWidth:'1280px',margin:'0 auto',padding:'0 28px'}}>
           <button onClick={() => setSB(p => !p)}
             style={{background:'none',border:'none',cursor:'pointer',padding:'8px 0',fontSize:'11px',color:'#888',width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:'6px'}}>
-            <span style={{fontSize:'14px'}}>{showBiz ? '▲' : '▲'}</span>
+            <span style={{fontSize:'14px'}}>▲</span>
             출력 정보 설정 (로고·상호·담당자·연락처)
+            {!configLoaded && <span style={{fontSize:'10px',color:'#c9a84c',marginLeft:'6px'}}>불러오는 중…</span>}
             <span style={{marginLeft:'auto',fontSize:'10px',color:'#c9a84c'}}>
               {showBiz ? '접기 ▼' : '펼치기 ▲'}
             </span>
@@ -606,6 +659,13 @@ function App() {
               <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
                 <span style={{fontSize:'10px',color:'#888'}}>연락처</span>
                 <input type="text" placeholder="010-0000-0000" value={agentPhone} onChange={v => setAP(v.target.value)} style={{width:'130px',fontSize:'12px'}} />
+              </div>
+              {/* 저장 버튼 */}
+              <div style={{display:'flex',flexDirection:'column',gap:'4px',justifyContent:'flex-end'}}>
+                <button onClick={configSave}
+                  style={{background:'#0d1b2a',color:'#c9a84c',border:'1px solid #c9a84c',padding:'6px 16px',fontSize:'12px',cursor:'pointer',fontWeight:600,whiteSpace:'nowrap',height:'32px'}}>
+                  💾 출력정보 저장
+                </button>
               </div>
             </div>
           )}
