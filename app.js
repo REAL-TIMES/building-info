@@ -4,12 +4,11 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.7.3';
-// v1.7.3: 카드/비교표/리포트 전환바 상단 고정(sticky)·리포트 인쇄 배경 줄무늬 밸런스 보정
-// v1.7.2: 카드/리포트에 ✏수정 버튼
-// v1.7.1: 조회 성공한 행은 입력폼에서 자동 제거
-// v1.7.0: 자동 저장·세션 자동 복원
-// v1.6.x: 고딕폰트·Supabase DB연동·출력정보 저장
+const VERSION = 'v1.7.4';
+// v1.7.4: 리포트 인쇄 시 좌우 여백 제거(페이지 폭 꽉 채움)·헤더 상단 띠 추가로 빈공간 해소
+// v1.7.3: 전환바 상단 고정(sticky)·리포트 인쇄 배경 줄무늬 밸런스
+// v1.7.2: 카드/리포트 ✏수정 버튼
+// v1.7.x: 자동저장·세션복원·고딕폰트·Supabase DB연동
 
 const { useState } = React;
 
@@ -694,7 +693,11 @@ function App() {
       {/* 인쇄 방향 동적 스타일 */}
       <style dangerouslySetInnerHTML={{__html:
         vw === 'report'
-          ? '@media print { @page { size: A4 portrait !important; margin: 10mm 12mm 18mm; } .report-card { page-break-after: always; break-after: page; } }'
+          ? ('@media print { @page { size: A4 portrait !important; margin: 10mm 12mm 14mm; }'
+            + ' .print-main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; }'
+            + ' .report-card { page-break-after: always; break-after: page; margin-bottom: 0 !important; }'
+            + ' .report-card:last-child { page-break-after: auto; break-after: auto; }'
+            + ' }')
           : vw === 'table'
             ? ('@media print { @page { size: A4 landscape !important; margin: 10mm 10mm 14mm; } }')
             : printMode === 'landscape'
@@ -1548,6 +1551,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
     <div className="report-card" style={{background:'white',marginBottom:'28px'}}>
 
       {/* ── 리포트 헤더 ── */}
+      <div style={{background:'#0d1b2a',height:'6px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}} />
       <div style={{background:'white',padding:'14px 20px 12px',borderBottom:'2.5px solid #0d1b2a'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
           <div>
