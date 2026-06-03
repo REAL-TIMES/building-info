@@ -4,9 +4,8 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.7.8';
-// v1.7.8: 카드 인쇄 빈공간 베이지 제거(흰배경 강제)·카드 잘림방지 강화
-// v1.7.7: 카드 인쇄 헤더 정돈·리포트헤더 상단 작성일/회사명 라인
+const VERSION = 'v1.8.0';
+// v1.8.0: 헤더명 Building Info·수정중 저장버튼·수정삭제버튼 확대(연필✎)·별칭→건물명·파일재선택 버그수정·비교표 로고 페이지넘침 해결
 // v1.7.x: 인쇄 레이아웃·sticky·수정버튼·자동저장·고딕폰트·Supabase DB
 
 const { useState } = React;
@@ -556,7 +555,7 @@ function App() {
       <header className="no-print" style={{background:'#0d1b2a',padding:'18px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div>
           <div style={{fontSize:'10px',letterSpacing:'0.15em',color:'#c9a84c',marginBottom:'3px'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
-          <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'22px',color:'#f7f4ef',fontWeight:400}}>건축물대장 비교 조회</div>
+          <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'22px',color:'#f7f4ef',fontWeight:400}}>Building Info</div>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
           {/* DB 패널 토글 버튼 */}
@@ -790,6 +789,7 @@ function App() {
                   <label style={{background:'#0d1b2a',color:'#c9a84c',padding:'5px 10px',fontSize:'11px',cursor:'pointer',border:'none'}}>
                     파일 선택
                     <input type="file" accept="image/*" style={{display:'none'}}
+                      onClick={ev => { ev.target.value = ''; }}
                       onChange={ev => {
                         const file = ev.target.files[0];
                         if (!file) return;
@@ -901,7 +901,7 @@ function ERow({ e, i, n, sidos, sgs, ds, up, rm, go }) {
           onKeyDown={k => k.key === 'Enter' && go(e)}
           style={{width:'100px',flexShrink:0}} />
 
-        <input type="text" placeholder="별칭 (선택)" value={e.alias}
+        <input type="text" placeholder="건물명 (선택)" value={e.alias}
           onChange={v => up(e.id, {alias:v.target.value})} style={{width:'100px',flexShrink:0}} />
 
         <input type="text" inputMode="decimal" placeholder="매매가(억)" value={e.price}
@@ -916,7 +916,7 @@ function ERow({ e, i, n, sidos, sgs, ds, up, rm, go }) {
 
         <button className="bdk" style={{fontSize:'12px',padding:'7px 14px',flexShrink:0,minWidth:'72px'}}
           onClick={() => go(e)} disabled={e.ld}>
-          {e.ld ? '조회 중…' : '조회'}
+          {e.ld ? (e.dbId ? '저장 중…' : '조회 중…') : (e.dbId ? '저장' : '조회')}
         </button>
 
         {n > 1 && (
@@ -1010,17 +1010,17 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving, onEd
       </label>
 
       {/* 번호 + 수정 + 삭제 버튼 */}
-      <div style={{position:'absolute',top:0,right:0,display:'flex',alignItems:'center'}}>
+      <div style={{position:'absolute',top:0,right:0,display:'flex',alignItems:'center',gap:'2px'}}>
         <button className="screen-only" onClick={onEdit}
           title="입력폼으로 불러와 수정"
-          style={{background:'transparent',border:'none',color:'#bbb',fontSize:'13px',cursor:'pointer',padding:'6px 6px',lineHeight:1,transition:'color 0.15s'}}
+          style={{background:'transparent',border:'none',color:'#999',fontSize:'19px',cursor:'pointer',padding:'7px 9px',lineHeight:1,transition:'color 0.15s'}}
           onMouseEnter={ev => ev.target.style.color='#c9a84c'}
-          onMouseLeave={ev => ev.target.style.color='#bbb'}>✏</button>
+          onMouseLeave={ev => ev.target.style.color='#999'}>✎</button>
         <button className="screen-only" onClick={onDelete}
           title="삭제"
-          style={{background:'transparent',border:'none',color:'#ccc',fontSize:'16px',cursor:'pointer',padding:'6px 8px',lineHeight:1,transition:'color 0.15s'}}
+          style={{background:'transparent',border:'none',color:'#bbb',fontSize:'22px',cursor:'pointer',padding:'5px 9px',lineHeight:1,transition:'color 0.15s'}}
           onMouseEnter={ev => ev.target.style.color='#c0392b'}
-          onMouseLeave={ev => ev.target.style.color='#ccc'}>×</button>
+          onMouseLeave={ev => ev.target.style.color='#bbb'}>×</button>
         <div style={{background:'#0d1b2a',color:'#c9a84c',width:'32px',height:'32px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'13px',fontWeight:700}}>{i+1}</div>
       </div>
 
@@ -1398,8 +1398,8 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
                   paddingTop: ci>0 ? '0' : '0'}}>
 
           {/* 각 페이지 자체 헤더 — 제목 위 여백 확보 */}
-          <div style={{paddingTop:'10pt'}} />
-          <div style={{borderBottom:'1.5pt solid #0d1b2a',paddingBottom:'7pt',marginBottom:'10pt',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
+          <div style={{paddingTop:'4pt'}} />
+          <div style={{borderBottom:'1.5pt solid #0d1b2a',paddingBottom:'6pt',marginBottom:'8pt',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
             <div>
               <div style={{fontSize:'7pt',letterSpacing:'0.12em',color:'#c9a84c',marginBottom:'2pt'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
               <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'22pt',fontWeight:700,lineHeight:1.1,color:'#0d1b2a'}}>{reportTitle||'건축물대장 비교 보고서'}</div>
@@ -1422,25 +1422,25 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
 
           {/* 인쇄 바닥글 — 로고 + 상호·주소·담당자·연락처 (DOM) */}
           {(bizName || bizAddr || agentName || agentPhone || logoSrc) && (
-            <div style={{marginTop:'8pt',borderTop:'1pt solid #c9a84c',paddingTop:'6pt'}}>
+            <div style={{marginTop:'6pt',borderTop:'1pt solid #c9a84c',paddingTop:'5pt',breakInside:'avoid',pageBreakInside:'avoid'}}>
               <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
                 <tbody>
                   <tr style={{verticalAlign:'middle'}}>
                     {/* 좌: 로고 + 상호 + 주소 */}
                     <td style={{verticalAlign:'middle',paddingRight:'8pt'}}>
-                      <span style={{display:'inline-flex',alignItems:'center',gap:'7pt'}}>
-                        {logoSrc && <img src={logoSrc} style={{height:'22pt',objectFit:'contain',verticalAlign:'middle'}} />}
-                        {bizName && <strong style={{color:'#0d1b2a',fontSize:'11pt',fontWeight:700}}>{bizName}</strong>}
+                      <span style={{display:'inline-flex',alignItems:'center',gap:'6pt'}}>
+                        {logoSrc && <img src={logoSrc} style={{height:'15pt',objectFit:'contain',verticalAlign:'middle'}} />}
+                        {bizName && <strong style={{color:'#0d1b2a',fontSize:'10.5pt',fontWeight:700}}>{bizName}</strong>}
                         {bizName && bizAddr && <span style={{color:'#bbb',margin:'0 5pt'}}>|</span>}
-                        {bizAddr && <span style={{color:'#333',fontSize:'9.5pt',fontWeight:500}}>{bizAddr}</span>}
+                        {bizAddr && <span style={{color:'#333',fontSize:'9pt',fontWeight:500}}>{bizAddr}</span>}
                       </span>
                     </td>
                     {/* 우: 담당자 + 연락처 */}
                     {(agentName||agentPhone) && (
                       <td style={{textAlign:'right',whiteSpace:'nowrap',verticalAlign:'middle',width:'160pt'}}>
-                        {agentName  && <strong style={{color:'#0d1b2a',fontSize:'11pt',fontWeight:700}}>{agentName}</strong>}
+                        {agentName  && <strong style={{color:'#0d1b2a',fontSize:'10.5pt',fontWeight:700}}>{agentName}</strong>}
                         {agentName && agentPhone && <span style={{color:'#bbb',margin:'0 5pt'}}>|</span>}
-                        {agentPhone && <strong style={{color:'#0d1b2a',fontSize:'10.5pt',fontWeight:600}}>{agentPhone}</strong>}
+                        {agentPhone && <strong style={{color:'#0d1b2a',fontSize:'10pt',fontWeight:600}}>{agentPhone}</strong>}
                       </td>
                     )}
                   </tr>
@@ -1663,9 +1663,11 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
             {photos.length < 3 && (
               <label className="no-print" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',cursor:'pointer',padding:'5px',border:'1px dashed #e0dcd4',background:'#fafaf8',fontSize:'10px',color:'#888',marginTop:'4px',flexShrink:0}}>
                 📷 {photos.length===0 ? '사진 업로드 (최대 3장)' : '사진 추가 ('+photos.length+'/3)'}
-                <input type="file" accept="image/*" multiple style={{display:'none'}} onChange={ev => {
-                  Array.from(ev.target.files).slice(0,3-photos.length).forEach(f=>{const r=new FileReader();r.onload=ev2=>addPhoto(e.id,ev2.target.result);r.readAsDataURL(f);});
-                }} />
+                <input type="file" accept="image/*" multiple style={{display:'none'}}
+                  onClick={ev => { ev.target.value = ''; }}
+                  onChange={ev => {
+                    Array.from(ev.target.files).slice(0,3-photos.length).forEach(f=>{const r=new FileReader();r.onload=ev2=>addPhoto(e.id,ev2.target.result);r.readAsDataURL(f);});
+                  }} />
               </label>
             )}
 
