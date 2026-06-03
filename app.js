@@ -4,11 +4,11 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.7.0';
-// v1.7.0: 자동 저장(디바운스)·세션 자동 복원 — 새로고침해도 작업하던 건물 자동 재표시
+const VERSION = 'v1.7.1';
+// v1.7.1: 조회 성공한 행은 입력폼에서 자동 제거(빈 입력행 1개 유지) — 위/아래 중복 해소
+// v1.7.0: 자동 저장(디바운스)·세션 자동 복원
 // v1.6.2: 전체 고딕폰트 전환·비교표/리포트 배경밸런스·비교표 인쇄 로고푸터·푸터 정보 강조
-// v1.6.1: 출력정보 Supabase app_config 자동 저장/불러오기
-// v1.6.0: Supabase DB 연동
+// v1.6.x: Supabase DB 연동·출력정보 저장
 
 const { useState } = React;
 
@@ -519,8 +519,16 @@ function App() {
   const sgs   = s     => Object.keys(R[s] || {}).sort();
   const ds    = (s,g) => Object.keys((R[s] && R[s][g] && R[s][g].d) || {}).sort();
   const sidos = Object.keys(R);
-  const rE    = ents.filter(e => e.res);
+  const rE    = ents.filter(e => e.res);          // 조회 완료 (카드 표시용)
+  const pendingE = ents.filter(e => !e.res);      // 미조회 (입력폼 표시용)
   const hasR  = rE.length > 0;
+
+  // 입력폼에 빈 행이 항상 1개는 있도록 보장
+  React.useEffect(() => {
+    if (pendingE.length === 0) {
+      setE(p => [...p, mk(_id++)]);
+    }
+  }, [pendingE.length]);
 
   return (
     <div style={{fontFamily:"'Noto Sans KR',sans-serif",background:'#f7f4ef',minHeight:'100vh',color:'#1a1a2e'}}>
@@ -610,25 +618,24 @@ function App() {
       <section className="no-print" style={{background:'#ede9e1',padding:'18px 28px 20px',borderBottom:'1px solid #d8d4cc'}}>
         <div style={{maxWidth:'1280px',margin:'0 auto'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
-            <span style={{fontSize:'11px',color:'#888'}}>조회 건물 목록 · {ents.length}건</span>
+            <span style={{fontSize:'11px',color:'#888'}}>
+              건물 조회 · 입력 후 조회하면 아래 카드에 추가됩니다
+              {rE.length > 0 && <span style={{marginLeft:'8px',color:'#c9a84c'}}>(저장된 건물 {rE.length}건)</span>}
+            </span>
             <div style={{display:'flex',gap:'8px'}}>
-              {ents.length > 1 && (
-                <button className="blt" style={{fontSize:'11px',padding:'6px 14px',color:'#c0392b',borderColor:'#e8b4b0'}}
-                  onClick={() => { if(window.confirm('모든 건물을 삭제하시겠습니까?')) setE([mk(1)]); }}>
-                  전체삭제
+              {pendingE.length > 1 && (
+                <button className="bdk" onClick={() => pendingE.forEach(e => go(e))}>
+                  {pendingE.some(e => e.ld) ? '조회 중…' : '전체 조회 ▶'}
                 </button>
               )}
-              <button className="bdk" onClick={() => ents.forEach(e => go(e))}>
-                {ents.some(e => e.ld) ? '조회 중…' : '전체 조회 ▶'}
-              </button>
             </div>
           </div>
-          {ents.map((e, i) => <ERow key={e.id} e={e} i={i} n={ents.length} sidos={sidos} sgs={sgs} ds={ds} up={up} rm={rm} go={go} />)}
+          {pendingE.map((e, i) => <ERow key={e.id} e={e} i={i} n={pendingE.length} sidos={sidos} sgs={sgs} ds={ds} up={up} rm={rm} go={go} />)}
 
           {/* 건물 추가 — 마지막 행 바로 아래 */}
           <button className="blt" style={{fontSize:'12px',padding:'8px 18px',marginTop:'4px',display:'flex',alignItems:'center',gap:'6px'}}
             onClick={add}>
-            <span style={{fontSize:'16px',lineHeight:1}}>+</span> 건물 추가
+            <span style={{fontSize:'16px',lineHeight:1}}>+</span> 입력란 추가
           </button>
           <p style={{fontSize:'11px',color:'#aaa',marginTop:'8px',lineHeight:1.7}}>
             ※ 동 코드가 없으면 "코드 직접입력"으로 시군구코드(5자리)·법정동코드(5자리)를 직접 입력하세요.
@@ -710,13 +717,13 @@ function App() {
               )}
               <div style={{display:'flex',gap:'10px'}}>
                 <button className="blt" style={{fontSize:'12px',padding:'9px 22px'}}
-                  onClick={() => { add(); window.scrollTo({top:0, behavior:'smooth'}); }}>
-                  + 건물 추가
+                  onClick={() => { window.scrollTo({top:0, behavior:'smooth'}); }}>
+                  ↑ 새 건물 입력하기
                 </button>
-                {ents.length > 1 && (
+                {rE.length > 0 && (
                   <button className="blt" style={{fontSize:'12px',padding:'9px 22px',color:'#c0392b',borderColor:'#e8b4b0'}}
-                    onClick={() => { if(window.confirm('모든 건물을 삭제하시겠습니까?')) setE([mk(1)]); }}>
-                    전체 삭제
+                    onClick={() => { if(window.confirm('화면의 모든 건물을 닫으시겠습니까?\n(DB 저장 목록에는 그대로 남아있습니다)')) setE([mk(_id++)]); }}>
+                    화면 비우기
                   </button>
                 )}
               </div>
@@ -885,10 +892,6 @@ function ERow({ e, i, n, sidos, sgs, ds, up, rm, go }) {
         )}
       </div>
       {e.err && <div style={{marginTop:'8px',marginLeft:'34px',fontSize:'12px',color:'#c0392b',background:'#fff5f4',padding:'6px 10px'}}>⚠ {e.err}</div>}
-      {e.res && <div style={{marginTop:'8px',marginLeft:'34px',fontSize:'12px',color:'#2e7d32',background:'#f1f8e9',padding:'6px 10px'}}>
-        ✓ {e.res.platPlc} — {[e.res.mainPurpsCdNm, e.res.etcPurps].filter(Boolean).join(' / ')}
-        {e.res.jiyukCdNm && <span style={{marginLeft:'8px',color:'#666'}}>│ {e.res.jiyukCdNm}</span>}
-      </div>}
     </div>
   );
 }
