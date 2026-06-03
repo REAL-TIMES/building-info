@@ -4,9 +4,10 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.8.1';
-// v1.8.1: 출력정보(로고·상호·담당자)도 자동저장으로 변경 — 저장 버튼 제거
-// v1.8.0: Building Info·수정중 저장버튼·버튼확대·건물명·파일재선택 버그수정·비교표 로고 넘침
+const VERSION = 'v1.8.2';
+// v1.8.2: 첫 접속 세션복원 병렬화(순차→Promise.all)로 로딩 속도 개선·복원중 안내 표시
+// v1.8.1: 출력정보 자동저장
+// v1.8.0: Building Info·버튼개선·파일재선택 버그수정·비교표 로고 넘침
 
 const { useState } = React;
 
@@ -425,35 +426,36 @@ function App() {
         const d = await res.json();
         const ids = (d.data && d.data.ids) || [];
         if (ids.length === 0) { setSR(true); return; }
+        // 병렬로 동시에 불러오기 (순차 대비 훨씬 빠름)
+        const results = await Promise.all(ids.map(rid =>
+          fetch('/api/db?action=get&id=' + encodeURIComponent(rid))
+            .then(r => r.json())
+            .catch(() => null)
+        ));
         const loaded = [];
-        for (const rid of ids) {
-          try {
-            const gr = await fetch('/api/db?action=get&id=' + encodeURIComponent(rid));
-            const gd = await gr.json();
-            const row = gd.row;
-            if (row && row.api_data) {
-              const ne = mk(_id++);
-              ne.res      = row.api_data;
-              ne.alias    = row.alias    || '';
-              ne.price    = row.price    || '';
-              ne.manual   = row.manual   || {};
-              ne.photos   = row.photos   || [];
-              ne.analysis = row.analysis || {};
-              ne.income   = row.income   || {};
-              ne.notes    = row.notes    || '';
-              ne.memo     = row.memo     || '';
-              ne.dbId     = row.id;
-              ne.autoSaved = true;
-              loaded.push(ne);
-              // 복원 직후 스냅샷도 기록해 즉시 재저장 방지
-              lastSaved.current[ne.id] = JSON.stringify({
-                alias: ne.alias, price: ne.price, manual: ne.manual,
-                photos: ne.photos, analysis: ne.analysis, income: ne.income,
-                notes: ne.notes, memo: ne.memo, plat: ne.res.platPlc,
-              });
-            }
-          } catch(e) {/* 개별 건물 복원 실패 무시 */}
-        }
+        results.forEach(gd => {
+          const row = gd && gd.row;
+          if (row && row.api_data) {
+            const ne = mk(_id++);
+            ne.res      = row.api_data;
+            ne.alias    = row.alias    || '';
+            ne.price    = row.price    || '';
+            ne.manual   = row.manual   || {};
+            ne.photos   = row.photos   || [];
+            ne.analysis = row.analysis || {};
+            ne.income   = row.income   || {};
+            ne.notes    = row.notes    || '';
+            ne.memo     = row.memo     || '';
+            ne.dbId     = row.id;
+            ne.autoSaved = true;
+            loaded.push(ne);
+            lastSaved.current[ne.id] = JSON.stringify({
+              alias: ne.alias, price: ne.price, manual: ne.manual,
+              photos: ne.photos, analysis: ne.analysis, income: ne.income,
+              notes: ne.notes, memo: ne.memo, plat: ne.res.platPlc,
+            });
+          }
+        });
         if (loaded.length > 0) {
           setE(loaded);  // 빈 초기 엔트리 대신 복원된 건물로 교체
         }
@@ -644,7 +646,8 @@ function App() {
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
             <span style={{fontSize:'11px',color:'#888'}}>
               건물 조회 · 입력 후 조회하면 아래 카드에 추가됩니다
-              {rE.length > 0 && <span style={{marginLeft:'8px',color:'#c9a84c'}}>(저장된 건물 {rE.length}건)</span>}
+              {!sessionRestored && <span style={{marginLeft:'8px',color:'#c9a84c'}}>⏳ 저장된 건물 불러오는 중…</span>}
+              {sessionRestored && rE.length > 0 && <span style={{marginLeft:'8px',color:'#c9a84c'}}>(저장된 건물 {rE.length}건)</span>}
             </span>
             <div style={{display:'flex',gap:'8px'}}>
               {pendingE.length > 1 && (
