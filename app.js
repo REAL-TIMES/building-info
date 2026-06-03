@@ -4,7 +4,8 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.6.1';
+const VERSION = 'v1.6.2';
+// v1.6.2: 전체 고딕폰트 전환·비교표/리포트 배경밸런스·비교표 인쇄 로고푸터·푸터 정보 강조
 // v1.6.1: 출력정보(로고·상호·담당자 등) Supabase app_config 자동 저장/불러오기
 // v1.6.0: Supabase DB 연동 — 저장·불러오기·목록·삭제
 
@@ -404,7 +405,7 @@ function App() {
       <header className="no-print" style={{background:'#0d1b2a',padding:'18px 28px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
         <div>
           <div style={{fontSize:'10px',letterSpacing:'0.15em',color:'#c9a84c',marginBottom:'3px'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'22px',color:'#f7f4ef',fontWeight:400}}>건축물대장 비교 조회</div>
+          <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'22px',color:'#f7f4ef',fontWeight:400}}>건축물대장 비교 조회</div>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
           {/* DB 패널 토글 버튼 */}
@@ -541,20 +542,17 @@ function App() {
         vw === 'report'
           ? '@media print { @page { size: A4 portrait !important; margin: 10mm 12mm 18mm; } .report-card { page-break-after: always; break-after: page; } }'
           : vw === 'table'
-            ? ('@media print { @page { size: A4 landscape !important; margin: 10mm 10mm 16mm;'
-              + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
-              + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
-              + ' } }')
+            ? ('@media print { @page { size: A4 landscape !important; margin: 10mm 10mm 14mm; } }')
             : printMode === 'landscape'
               ? ('@media print { @page { size: A4 landscape !important; margin: 20mm 10mm 16mm;'
-                + ' @top-left { content: "' + (reportTitle||'건축물대장 비교 보고서') + '"; font-size: 18pt; font-weight: bold; color: #0d1b2a; font-family: "Cormorant Garamond", serif; }'
+                + ' @top-left { content: "' + (reportTitle||'건축물대장 비교 보고서') + '"; font-size: 18pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
                 + ' @top-center { content: "TIMES REAL ESTATE · 타임즈부동산중개"; font-size: 7pt; color: #c9a84c; font-family: sans-serif; }'
                 + ' @top-right { content: "' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; }'
                 + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
                 + ' @bottom-right { content: "' + (agentName||'') + (agentPhone ? '   ' + agentPhone : '') + '"; font-size: 8pt; color: #555; font-family: sans-serif; }'
                 + ' } .ph { display: none !important; } .cg { grid-template-columns: 1fr 1fr 1fr !important; padding-top: 0 !important; } }')
               : ('@media print { @page { size: A4 portrait !important; margin: 20mm 10mm 16mm;'
-                + ' @top-left { content: "' + (reportTitle||'건축물대장 비교 보고서') + '"; font-size: 18pt; font-weight: bold; color: #0d1b2a; font-family: "Cormorant Garamond", serif; }'
+                + ' @top-left { content: "' + (reportTitle||'건축물대장 비교 보고서') + '"; font-size: 18pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
                 + ' @top-center { content: "TIMES REAL ESTATE · 타임즈부동산중개"; font-size: 7pt; color: #c9a84c; font-family: sans-serif; }'
                 + ' @top-right { content: "' + reportDate + '"; font-size: 8pt; color: #888; font-family: sans-serif; }'
                 + ' @bottom-left { content: "' + (bizName||'') + (bizAddr ? '  |  ' + bizAddr : '') + '"; font-size: 9pt; font-weight: bold; color: #0d1b2a; font-family: sans-serif; }'
@@ -569,7 +567,7 @@ function App() {
       <main style={{padding:'10px 28px 48px',maxWidth:'1280px',margin:'0 auto'}} className="print-main">
         {!hasR && (
           <div style={{textAlign:'center',padding:'80px 0',color:'#ccc'}}>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'28px',marginBottom:'10px'}}>건물을 조회하면 결과가 표시됩니다</div>
+            <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'28px',marginBottom:'10px'}}>건물을 조회하면 결과가 표시됩니다</div>
             <div style={{fontSize:'12px',color:'#bbb'}}>번지를 입력하고 조회 버튼을 누르세요</div>
           </div>
         )}
@@ -872,7 +870,7 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving }) {
             {m.jiyukCdNm && <span className="no-print" style={{color:'#c9a84c',marginLeft:'4px',fontSize:'9px'}}>✓수기</span>}
           </div>
         )}
-        <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'20px',fontWeight:600,lineHeight:1.2,marginBottom:'4px',color:'#0d1b2a'}}>{title}</div>
+        <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'20px',fontWeight:600,lineHeight:1.2,marginBottom:'4px',color:'#0d1b2a'}}>{title}</div>
         <div style={{fontSize:'11px',color:'#999'}}>{it.platPlc}</div>
         {it.newPlatPlc && <div style={{fontSize:'10px',color:'#bbb',marginTop:'2px'}}>{it.newPlatPlc}</div>}
       </div>
@@ -896,7 +894,7 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving }) {
         {s3.map(s => (
           <div key={s.l} style={{background:'#faf9f5',padding:'10px 6px',textAlign:'center'}}>
             <div style={{fontSize:'10px',color:'#aaa',marginBottom:'3px'}}>{s.l}</div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'18px',fontWeight:600,color:'#0d1b2a'}}>{s.v}</div>
+            <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'18px',fontWeight:600,color:'#0d1b2a'}}>{s.v}</div>
           </div>
         ))}
       </div>
@@ -907,7 +905,7 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving }) {
           {missingPlatArea && !m.platArea && <span style={{color:'#e74c3c',marginLeft:'4px',fontSize:'10px'}}>미확인</span>}
           {m.platArea && <span className="no-print" style={{color:'#2e7d32',marginLeft:'4px',fontSize:'10px'}}>✓수기</span>}
         </span>
-        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'18px',fontWeight:600,color:'#0d1b2a'}}>
+        <span style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'18px',fontWeight:600,color:'#0d1b2a'}}>
           {platArea && parseFloat(platArea) > 0 ? (
             <>{py(platArea)}<span style={{fontSize:'12px',fontWeight:400,marginLeft:'2px'}}>평</span>
               <span style={{fontSize:'12px',fontWeight:400,color:'#aaa',marginLeft:'6px'}}>({parseFloat(platArea).toFixed(0)}㎡)</span>
@@ -1112,7 +1110,7 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
   const sTd = (stripe) => ({
     padding:'8px 10px', border:'1px solid #ddd8d0', verticalAlign:'middle',
     fontSize:'12px', lineHeight:1.5, textAlign:'center',
-    background: stripe ? '#faf9f6' : 'white',
+    background: stripe ? '#f3efe7' : '#ffffff',
     whiteSpace:'normal', wordBreak:'keep-all',
   });
 
@@ -1123,38 +1121,39 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
   const pTd = (stripe) => ({
     padding:'4pt 6pt', border:'1px solid #ccc8c0', verticalAlign:'middle',
     fontSize:'8.5pt', lineHeight:1.3, textAlign:'center',
-    background: stripe ? '#faf8f4' : 'white',
+    background: stripe ? '#f3efe7' : '#ffffff',
     whiteSpace:'normal', wordBreak:'keep-all',
     overflow:'hidden',
+    WebkitPrintColorAdjust:'exact', printColorAdjust:'exact',
   });
 
   const buildRows = (cols, isP) => {
     const pl = isP ? pPlcBase : sPlcBase;
     const gl = isP ? pGolBase : sGolBase;
     const tdFn = isP ? pTd : sTd;
+    // 데이터 행(COLS) 줄무늬: 첫 행 흰색부터 시작 → 흰/베이지 균등
     let ri = 0;
-    const s = () => ri++ % 2 === 0;
-    const s0=s(), s1=s(), s2=s();
+    const s = () => ri++ % 2 === 1;
     return (
       <tbody>
         <tr>
-          <td style={{...pl, background: s0 ? pl.background : '#e0dcd4'}}>주소</td>
-          {cols.map(e => <td key={e.id} style={tdFn(s0)}>{e.res ? (e.res.platPlc||'—') : '—'}</td>)}
+          <td style={{...pl, background: '#e0dcd4'}}>주소</td>
+          {cols.map(e => <td key={e.id} style={tdFn(false)}>{e.res ? (e.res.platPlc||'—') : '—'}</td>)}
         </tr>
         <tr>
-          <td style={{...gl, background: s1 ? gl.background : '#f5dfa0'}}>매매가</td>
-          {cols.map(e => <td key={e.id} style={{...tdFn(s1),fontWeight:600,color:'#1a1a2e'}}>
+          <td style={{...gl, background: '#f5dfa0'}}>매매가</td>
+          {cols.map(e => <td key={e.id} style={{...tdFn(false),fontWeight:600,color:'#1a1a2e'}}>
             {e.price && parseFloat(e.price)>0 ? parseFloat(e.price)+'억원' : '—'}
           </td>)}
         </tr>
         <tr>
-          <td style={{...gl, background: s2 ? gl.background : '#f5dfa0'}}>평단가</td>
+          <td style={{...gl, background: '#f5dfa0'}}>평단가</td>
           {cols.map(e => {
             const merged = e.res ? mergeEntry(e) : {};
             const pPy = merged.platArea && parseFloat(merged.platArea)>0 ? parseFloat(merged.platArea)/PY : null;
             const pN  = e.price && parseFloat(e.price)>0 ? parseFloat(e.price) : null;
             const pp  = (pN && pPy) ? Math.round(pN*10000/pPy).toLocaleString() : null;
-            return <td key={e.id} style={{...tdFn(s2),fontWeight:600,color:'#1a1a2e'}}>{pp ? pp+'만원/평' : '—'}</td>;
+            return <td key={e.id} style={{...tdFn(false),fontWeight:600,color:'#1a1a2e'}}>{pp ? pp+'만원/평' : '—'}</td>;
           })}
         </tr>
         {COLS.slice(1).map(col => {
@@ -1219,7 +1218,7 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
           <div style={{borderBottom:'1.5pt solid #0d1b2a',paddingBottom:'6pt',marginBottom:'8pt',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
             <div>
               <div style={{fontSize:'7pt',letterSpacing:'0.12em',color:'#c9a84c'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'22pt',fontWeight:600,lineHeight:1.1}}>{reportTitle||'건축물대장 비교 보고서'}</div>
+              <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'22pt',fontWeight:600,lineHeight:1.1}}>{reportTitle||'건축물대장 비교 보고서'}</div>
             </div>
             <div style={{textAlign:'right',fontSize:'8pt',color:'#888'}}>
               {reportDate}&nbsp;·&nbsp;총 {totalSel}건
@@ -1236,7 +1235,35 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
             {buildHead(chunk.items, false, chunk.startIdx, true)}
             {buildRows(chunk.items, true)}
           </table>
-          {/* 바닥글은 CSS @bottom-* 마진박스로 처리 */}
+
+          {/* 인쇄 바닥글 — 로고 + 상호·주소·담당자·연락처 (DOM) */}
+          {(bizName || bizAddr || agentName || agentPhone || logoSrc) && (
+            <div style={{marginTop:'8pt',borderTop:'1pt solid #c9a84c',paddingTop:'6pt'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
+                <tbody>
+                  <tr style={{verticalAlign:'middle'}}>
+                    {/* 좌: 로고 + 상호 + 주소 */}
+                    <td style={{verticalAlign:'middle',paddingRight:'8pt'}}>
+                      <span style={{display:'inline-flex',alignItems:'center',gap:'7pt'}}>
+                        {logoSrc && <img src={logoSrc} style={{height:'22pt',objectFit:'contain',verticalAlign:'middle'}} />}
+                        {bizName && <strong style={{color:'#0d1b2a',fontSize:'11pt',fontWeight:700}}>{bizName}</strong>}
+                        {bizName && bizAddr && <span style={{color:'#bbb',margin:'0 5pt'}}>|</span>}
+                        {bizAddr && <span style={{color:'#333',fontSize:'9.5pt',fontWeight:500}}>{bizAddr}</span>}
+                      </span>
+                    </td>
+                    {/* 우: 담당자 + 연락처 */}
+                    {(agentName||agentPhone) && (
+                      <td style={{textAlign:'right',whiteSpace:'nowrap',verticalAlign:'middle',width:'160pt'}}>
+                        {agentName  && <strong style={{color:'#0d1b2a',fontSize:'11pt',fontWeight:700}}>{agentName}</strong>}
+                        {agentName && agentPhone && <span style={{color:'#bbb',margin:'0 5pt'}}>|</span>}
+                        {agentPhone && <strong style={{color:'#0d1b2a',fontSize:'10.5pt',fontWeight:600}}>{agentPhone}</strong>}
+                      </td>
+                    )}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       ))}
     </>
@@ -1371,9 +1398,9 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           <div>
             <div style={{fontSize:'8px',letterSpacing:'0.25em',color:'#c9a84c',marginBottom:'4px'}}>TIMES REAL ESTATE · 건물 분석 리포트</div>
             {reportTitle && (
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'30px',fontWeight:700,color:'#0d1b2a',lineHeight:1.1,marginBottom:'4px',letterSpacing:'0.01em'}}>{reportTitle}</div>
+              <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'30px',fontWeight:700,color:'#0d1b2a',lineHeight:1.1,marginBottom:'4px',letterSpacing:'0.01em'}}>{reportTitle}</div>
             )}
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'16px',fontWeight:400,color:'#444',lineHeight:1.2}}>{title}</div>
+            <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'16px',fontWeight:400,color:'#444',lineHeight:1.2}}>{title}</div>
             <div style={{fontSize:'10px',color:'#888',marginTop:'4px'}}>{it.platPlc}</div>
           </div>
           <div style={{textAlign:'right',flexShrink:0,marginLeft:'12px',marginTop:'2px'}}>
@@ -1651,25 +1678,25 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
       </div>
 
       {/* 리포트 푸터 — CSS table (인쇄 안정) */}
-      <div className="print-only" style={{margin:'8px 20px 14px',borderTop:'1pt solid #c9a84c',paddingTop:'6pt',fontSize:'8pt',color:'#555'}}>
+      <div className="print-only" style={{margin:'8px 20px 14px',borderTop:'1pt solid #c9a84c',paddingTop:'6pt',fontSize:'9.5pt',color:'#333'}}>
         <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
           <tbody>
             <tr style={{verticalAlign:'middle'}}>
               {/* 좌: 로고 + 상호 + 주소 */}
               <td style={{verticalAlign:'middle',paddingRight:'8pt'}}>
-                <span style={{display:'inline-flex',alignItems:'center',gap:'6pt'}}>
-                  {logoSrc && <img src={logoSrc} style={{height:'18pt',objectFit:'contain',verticalAlign:'middle'}} />}
-                  {bizName && <strong style={{color:'#0d1b2a',fontSize:'9pt'}}>{bizName}</strong>}
-                  {bizName && bizAddr && <span style={{color:'#ccc',margin:'0 4pt'}}>|</span>}
-                  {bizAddr && <span style={{color:'#777'}}>{bizAddr}</span>}
+                <span style={{display:'inline-flex',alignItems:'center',gap:'7pt'}}>
+                  {logoSrc && <img src={logoSrc} style={{height:'22pt',objectFit:'contain',verticalAlign:'middle'}} />}
+                  {bizName && <strong style={{color:'#0d1b2a',fontSize:'11pt',fontWeight:700}}>{bizName}</strong>}
+                  {bizName && bizAddr && <span style={{color:'#bbb',margin:'0 5pt'}}>|</span>}
+                  {bizAddr && <span style={{color:'#333',fontSize:'9.5pt',fontWeight:500}}>{bizAddr}</span>}
                 </span>
               </td>
               {/* 우: 담당자 + 연락처 (같은 셀, 우측 정렬) */}
               {(agentName||agentPhone) && (
-                <td style={{textAlign:'right',whiteSpace:'nowrap',verticalAlign:'middle',width:'120pt'}}>
-                  {agentName  && <strong style={{color:'#0d1b2a',fontSize:'9pt'}}>{agentName}</strong>}
-                  {agentName && agentPhone && <span style={{color:'#ccc',margin:'0 4pt'}}>|</span>}
-                  {agentPhone && <span>{agentPhone}</span>}
+                <td style={{textAlign:'right',whiteSpace:'nowrap',verticalAlign:'middle',width:'160pt'}}>
+                  {agentName  && <strong style={{color:'#0d1b2a',fontSize:'11pt',fontWeight:700}}>{agentName}</strong>}
+                  {agentName && agentPhone && <span style={{color:'#bbb',margin:'0 5pt'}}>|</span>}
+                  {agentPhone && <strong style={{color:'#0d1b2a',fontSize:'10.5pt',fontWeight:600}}>{agentPhone}</strong>}
                 </td>
               )}
             </tr>
