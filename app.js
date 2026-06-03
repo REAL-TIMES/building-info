@@ -4,9 +4,9 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.8.0';
-// v1.8.0: 헤더명 Building Info·수정중 저장버튼·수정삭제버튼 확대(연필✎)·별칭→건물명·파일재선택 버그수정·비교표 로고 페이지넘침 해결
-// v1.7.x: 인쇄 레이아웃·sticky·수정버튼·자동저장·고딕폰트·Supabase DB
+const VERSION = 'v1.8.1';
+// v1.8.1: 출력정보(로고·상호·담당자)도 자동저장으로 변경 — 저장 버튼 제거
+// v1.8.0: Building Info·수정중 저장버튼·버튼확대·건물명·파일재선택 버그수정·비교표 로고 넘침
 
 const { useState } = React;
 
@@ -345,8 +345,8 @@ function App() {
     }
   };
 
-  // ── 출력 정보 DB 저장 ──
-  const configSave = async () => {
+  // ── 출력 정보 DB 저장 (조용한 자동저장) ──
+  const configSaveSilent = async () => {
     try {
       await fetch('/api/db?action=config-set', {
         method: 'POST',
@@ -356,16 +356,22 @@ function App() {
           data: { bizName, bizAddr, agentName, agentPhone, logoSrc }
         })
       });
-      setDbMsg('✅ 출력 정보가 저장되었습니다');
-    } catch(e) {
-      setDbMsg('❌ 저장 실패: ' + e.message);
-    }
+    } catch(e) { /* 자동저장 실패는 조용히 무시 */ }
   };
 
   // ── 앱 시작 시 자동으로 출력 정보 불러오기 ──
   React.useEffect(() => {
     configLoad();
   }, []);
+
+  // ── 출력 정보 자동 저장 (디바운스) ──
+  // configLoaded(초기 로드 완료) 이후에만, 변경 시 1.2초 뒤 저장
+  const configTimer = React.useRef(null);
+  React.useEffect(() => {
+    if (!configLoaded) return;  // 초기 로드 전엔 저장 안 함 (덮어쓰기 방지)
+    if (configTimer.current) clearTimeout(configTimer.current);
+    configTimer.current = setTimeout(() => { configSaveSilent(); }, 1200);
+  }, [bizName, bizAddr, agentName, agentPhone, logoSrc, configLoaded]);
 
   // ── 자동 저장 (디바운스) ──
   // 저장 대상 필드만 추려 직렬화 → 변경 시에만 1.2초 후 저장
@@ -775,7 +781,9 @@ function App() {
             style={{background:'none',border:'none',cursor:'pointer',padding:'8px 0',fontSize:'11px',color:'#888',width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:'6px'}}>
             <span style={{fontSize:'14px'}}>▲</span>
             출력 정보 설정 (로고·상호·담당자·연락처)
-            {!configLoaded && <span style={{fontSize:'10px',color:'#c9a84c',marginLeft:'6px'}}>불러오는 중…</span>}
+            {!configLoaded
+              ? <span style={{fontSize:'10px',color:'#c9a84c',marginLeft:'6px'}}>불러오는 중…</span>
+              : <span style={{fontSize:'10px',color:'#999',marginLeft:'6px'}}>· 입력 시 자동 저장됩니다</span>}
             <span style={{marginLeft:'auto',fontSize:'10px',color:'#c9a84c'}}>
               {showBiz ? '접기 ▼' : '펼치기 ▲'}
             </span>
@@ -822,12 +830,11 @@ function App() {
                 <span style={{fontSize:'10px',color:'#888'}}>연락처</span>
                 <input type="text" placeholder="010-0000-0000" value={agentPhone} onChange={v => setAP(v.target.value)} style={{width:'130px',fontSize:'12px'}} />
               </div>
-              {/* 저장 버튼 */}
+              {/* 자동 저장 안내 */}
               <div style={{display:'flex',flexDirection:'column',gap:'4px',justifyContent:'flex-end'}}>
-                <button onClick={configSave}
-                  style={{background:'#0d1b2a',color:'#c9a84c',border:'1px solid #c9a84c',padding:'6px 16px',fontSize:'12px',cursor:'pointer',fontWeight:600,whiteSpace:'nowrap',height:'32px'}}>
-                  💾 출력정보 저장
-                </button>
+                <span style={{fontSize:'11px',color:'#2e7d32',background:'#f0fff4',border:'1px solid #a8d5b0',padding:'7px 14px',whiteSpace:'nowrap',height:'32px',display:'flex',alignItems:'center',gap:'5px',boxSizing:'border-box'}}>
+                  ✅ 자동 저장됨
+                </span>
               </div>
             </div>
           )}
