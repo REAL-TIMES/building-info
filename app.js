@@ -4,11 +4,10 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.7.5';
-// v1.7.5: 리포트 인쇄 — 베이지 배경 비침 제거(흰배경)·각 카드 페이지높이 채움·푸터 페이지 하단 고정
-// v1.7.4: 리포트 인쇄 좌우여백 제거·헤더 상단 띠
-// v1.7.3: 전환바 sticky·리포트 배경 줄무늬
-// v1.7.x: 자동저장·세션복원·수정버튼·고딕폰트·Supabase DB연동
+const VERSION = 'v1.7.6';
+// v1.7.6: 리포트헤더 좌(제목)/우(별칭+주소) 배치·비교표 제목위 여백·주소 동/지번 줄바꿈·행높이↑
+// v1.7.5: 리포트 인쇄 베이지 배경 제거·푸터 하단 고정
+// v1.7.x: sticky전환바·수정버튼·자동저장·세션복원·고딕폰트·Supabase DB연동
 
 const { useState } = React;
 
@@ -1277,12 +1276,12 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
   });
 
   // ── 인쇄용 스타일 (더 컴팩트) ──
-  const pThBase  = { background:'#0d1b2a',color:'#f7f4ef',padding:'5pt 6pt',border:'1px solid #0d1b2a',fontWeight:600,fontSize:'8.5pt',verticalAlign:'middle' };
-  const pPlcBase = { background:'#ede9e1',padding:'4pt 6pt',color:'#444',fontWeight:700,border:'1px solid #ccc8c0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'8pt',textAlign:'center' };
-  const pGolBase = { background:'#fff0cc',padding:'4pt 6pt',color:'#a05800',fontWeight:700,border:'1px solid #ccc8c0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'8pt',textAlign:'center' };
+  const pThBase  = { background:'#0d1b2a',color:'#f7f4ef',padding:'7pt 6pt',border:'1px solid #0d1b2a',fontWeight:600,fontSize:'8.5pt',verticalAlign:'middle' };
+  const pPlcBase = { background:'#ede9e1',padding:'6.5pt 6pt',color:'#444',fontWeight:700,border:'1px solid #ccc8c0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'8pt',textAlign:'center' };
+  const pGolBase = { background:'#fff0cc',padding:'6.5pt 6pt',color:'#a05800',fontWeight:700,border:'1px solid #ccc8c0',whiteSpace:'nowrap',verticalAlign:'middle',fontSize:'8pt',textAlign:'center' };
   const pTd = (stripe) => ({
-    padding:'4pt 6pt', border:'1px solid #ccc8c0', verticalAlign:'middle',
-    fontSize:'8.5pt', lineHeight:1.3, textAlign:'center',
+    padding:'6.5pt 6pt', border:'1px solid #ccc8c0', verticalAlign:'middle',
+    fontSize:'8.5pt', lineHeight:1.4, textAlign:'center',
     background: stripe ? '#f3efe7' : '#ffffff',
     whiteSpace:'normal', wordBreak:'keep-all',
     overflow:'hidden',
@@ -1300,7 +1299,25 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
       <tbody>
         <tr>
           <td style={{...pl, background: '#e0dcd4'}}>주소</td>
-          {cols.map(e => <td key={e.id} style={tdFn(false)}>{e.res ? (e.res.platPlc||'—') : '—'}</td>)}
+          {cols.map(e => {
+            // "서울특별시 서초구 방배동 839-34번지" → ["...방배동", "839-34번지"]
+            const full = (e.res && e.res.platPlc) ? e.res.platPlc : '';
+            let line1 = full, line2 = '';
+            if (full) {
+              const m = full.match(/^(.*?[동리가])\s+(.+)$/);
+              if (m) { line1 = m[1]; line2 = m[2]; }
+            }
+            return (
+              <td key={e.id} style={tdFn(false)}>
+                {full ? (
+                  <span>
+                    {line1}
+                    {line2 && <><br/><span style={{fontWeight:600}}>{line2}</span></>}
+                  </span>
+                ) : '—'}
+              </td>
+            );
+          })}
         </tr>
         <tr>
           <td style={{...gl, background: '#f5dfa0'}}>매매가</td>
@@ -1376,11 +1393,12 @@ function CmpT({ entries, togglePrint, printMode, reportTitle, reportDate, totalS
           style={{pageBreakBefore: ci>0 ? 'always' : 'auto', breakBefore: ci>0 ? 'page' : 'auto',
                   paddingTop: ci>0 ? '0' : '0'}}>
 
-          {/* 각 페이지 자체 헤더 */}
-          <div style={{borderBottom:'1.5pt solid #0d1b2a',paddingBottom:'6pt',marginBottom:'8pt',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
+          {/* 각 페이지 자체 헤더 — 제목 위 여백 확보 */}
+          <div style={{paddingTop:'10pt'}} />
+          <div style={{borderBottom:'1.5pt solid #0d1b2a',paddingBottom:'7pt',marginBottom:'10pt',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
             <div>
-              <div style={{fontSize:'7pt',letterSpacing:'0.12em',color:'#c9a84c'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
-              <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'22pt',fontWeight:600,lineHeight:1.1}}>{reportTitle||'건축물대장 비교 보고서'}</div>
+              <div style={{fontSize:'7pt',letterSpacing:'0.12em',color:'#c9a84c',marginBottom:'2pt'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
+              <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'22pt',fontWeight:700,lineHeight:1.1,color:'#0d1b2a'}}>{reportTitle||'건축물대장 비교 보고서'}</div>
             </div>
             <div style={{textAlign:'right',fontSize:'8pt',color:'#888'}}>
               {reportDate}&nbsp;·&nbsp;총 {totalSel}건
@@ -1556,20 +1574,23 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
 
       {/* ── 리포트 헤더 ── */}
       <div style={{background:'#0d1b2a',height:'6px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}} />
-      <div style={{background:'white',padding:'14px 20px 12px',borderBottom:'2.5px solid #0d1b2a'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-          <div>
-            <div style={{fontSize:'8px',letterSpacing:'0.25em',color:'#c9a84c',marginBottom:'4px'}}>TIMES REAL ESTATE · 건물 분석 리포트</div>
-            {reportTitle && (
-              <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'30px',fontWeight:700,color:'#0d1b2a',lineHeight:1.1,marginBottom:'4px',letterSpacing:'0.01em'}}>{reportTitle}</div>
-            )}
-            <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'16px',fontWeight:400,color:'#444',lineHeight:1.2}}>{title}</div>
-            <div style={{fontSize:'10px',color:'#888',marginTop:'4px'}}>{it.platPlc}</div>
+      <div style={{background:'white',padding:'16px 20px 12px',borderBottom:'2.5px solid #0d1b2a'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',gap:'16px'}}>
+          {/* 좌: 회사명 + 보고서 제목 */}
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:'8px',letterSpacing:'0.25em',color:'#c9a84c',marginBottom:'5px'}}>TIMES REAL ESTATE · 건물 분석 리포트</div>
+            <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'30px',fontWeight:700,color:'#0d1b2a',lineHeight:1.1,letterSpacing:'0.01em'}}>
+              {reportTitle || '건물 분석 리포트'}
+            </div>
           </div>
-          <div style={{textAlign:'right',flexShrink:0,marginLeft:'12px',marginTop:'2px'}}>
-            <div style={{fontSize:'11px',color:'#555',fontWeight:500,marginBottom:'6px'}}>{reportDate}</div>
+          {/* 우: 별칭(건물명) + 주소 + 날짜 */}
+          <div style={{textAlign:'right',flexShrink:0,minWidth:0}}>
+            <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'17px',fontWeight:600,color:'#0d1b2a',lineHeight:1.2}}>{title}</div>
+            <div style={{fontSize:'11px',color:'#666',marginTop:'3px'}}>{it.platPlc}</div>
+            {it.newPlatPlc && <div style={{fontSize:'10px',color:'#aaa',marginTop:'1px'}}>{it.newPlatPlc}</div>}
+            <div style={{fontSize:'10px',color:'#888',marginTop:'4px'}}>{reportDate}</div>
             {/* 수정 + 자동저장 상태 — 화면 전용 */}
-            <div className="no-print" style={{display:'flex',gap:'6px',justifyContent:'flex-end'}}>
+            <div className="no-print" style={{display:'flex',gap:'6px',justifyContent:'flex-end',marginTop:'8px'}}>
               <button onClick={onEdit}
                 title="입력폼으로 불러와 수정"
                 style={{background:'#fff', color:'#888', border:'1px solid #e0dcd4', padding:'6px 12px', fontSize:'11px', cursor:'pointer', fontWeight:600, whiteSpace:'nowrap'}}>
