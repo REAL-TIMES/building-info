@@ -4,7 +4,8 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.5.7';
+const VERSION = 'v1.6.0';
+// v1.6.0: Supabase DB 연동 — 저장·불러오기·목록·삭제 (Vercel 환경변수, 브라우저 키 입력 불필요)
 // v1.3.3: 제목중복 수정·사진업로드버튼 수정·지도로딩칸 제거·Gemini2.0 다중폴백·사진비율고정
 
 const { useState } = React;
@@ -143,6 +144,13 @@ function App() {
   });
   const [printMode,   setPM] = useState('landscape');
   const [showBiz,     setSB] = useState(false);
+
+  // ── DB 관련 state ──
+  const [dbList,      setDbList]   = useState([]);      // 저장된 건물 목록
+  const [dbLoading,   setDbLoading] = useState(false);  // 목록 로딩
+  const [dbSaving,    setDbSaving]  = useState({});     // {id: true} 저장 중
+  const [dbMsg,       setDbMsg]     = useState('');     // 피드백 메시지
+  const [showDbPanel, setShowDb]    = useState(false);  // 저장 목록 패널
   const [bizName,     setBN] = useState('타임즈부동산중개');
   const [bizAddr,     setBA] = useState('서울특별시 서초구 반포동 반포프라자');
   const [agentName,   setAN] = useState('성재윤');
@@ -161,7 +169,119 @@ function App() {
   const rm          = id      => setE(p => p.filter(e => e.id !== id));
   const togglePrint = id      => setE(p => p.map(e => e.id === id ? {...e, printSel:!e.printSel} : e));
 
-  // 주소 → 좌표 자동 지오코딩 (Nominatim)
+  // ── DB API 호출 헬퍼 ──
+  const dbFetch = async (action, params, body) => {
+    const qs = Object.keys(params||{}).map(k => k+'='+encodeURIComponent(params[k])).join('&');
+    const res = await fetch('/api/db?action=' + action + (qs ? '&'+qs : ''), {
+      method: body ? 'POST' : 'GET',
+      headers: body ? {'Content-Type':'application/json'} : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    return d;
+  };
+
+  // 목록 불러오기
+  const dbLoadList = async () => {
+    setDbLoading(true); setDbMsg('');
+    try {
+      const d = await dbFetch('list');
+      setDbList(d.rows || []);
+    } catch(e) {
+      setDbMsg('❌ ' + e.message);
+    } finally {
+      setDbLoading(false);
+    }
+  };
+
+  // 단건 저장 (현재 조회된 건물 → DB 저장)
+  const dbSave = async (ent) => {
+    if (!ent.res) return;
+    setDbSaving(p => ({...p, [ent.id]: true}));
+    setDbMsg('');
+    try {
+      const body = {
+        id:           ent.dbId || undefined,   // 기존 row 업데이트 or 신규
+        alias:        ent.alias        || null,
+        plat_plc:     ent.res.platPlc  || null,
+        new_plat_plc: ent.res.newPlatPlc || null,
+        bld_nm:       ent.res.bldNm    || null,
+        api_data:     ent.res,
+        manual:       ent.manual       || {},
+        price:        ent.price        || null,
+        photos:       ent.photos       || [],
+        analysis:     ent.analysis     || {},
+        income:       ent.income       || {},
+        notes:        ent.notes        || null,
+        memo:         ent.memo         || null,
+      };
+      const d = await dbFetch('upsert', {}, body);
+      // 저장 후 dbId 기억 (다음 저장 시 업데이트)
+      const savedId = d.row && d.row.id;
+      if (savedId) up(ent.id, { dbId: savedId });
+      setDbMsg('✅ 저장 완료 — ' + (ent.alias || ent.res.platPlc));
+      // 목록 갱신
+      if (showDbPanel) dbLoadList();
+    } catch(e) {
+      setDbMsg('❌ 저장 실패: ' + e.message);
+    } finally {
+      setDbSaving(p => ({...p, [ent.id]: false}));
+    }
+  };
+
+  // DB에서 단건 불러와 현재 목록에 추가
+  const dbLoad = async (rowId) => {
+    setDbLoading(true); setDbMsg('');
+    try {
+      const d = await dbFetch('get', {id: rowId});
+      const row = d.row;
+      if (!row || !row.api_data) { setDbMsg('❌ 데이터 없음'); return; }
+      const newEnt = mk(_id++);
+      newEnt.res      = row.api_data;
+      newEnt.alias    = row.alias    || '';
+      newEnt.price    = row.price    || '';
+      newEnt.manual   = row.manual   || {};
+      newEnt.photos   = row.photos   || [];
+      newEnt.analysis = row.analysis || {};
+      newEnt.income   = row.income   || {};
+      newEnt.notes    = row.notes    || '';
+      newEnt.memo     = row.memo     || '';
+      newEnt.dbId     = row.id;
+      // sido/sg/dong은 복원 불필요 (이미 res 있음)
+      setE(p => [...p, newEnt]);
+      setShowDb(false);
+      setDbMsg('✅ 불러오기 완료 — ' + (row.alias || row.plat_plc));
+    } catch(e) {
+      setDbMsg('❌ 불러오기 실패: ' + e.message);
+    } finally {
+      setDbLoading(false);
+    }
+  };
+
+  // DB에서 단건 삭제
+  const dbDelete = async (rowId, label) => {
+    if (!window.confirm('삭제하시겠습니까?\n' + label)) return;
+    setDbLoading(true);
+    try {
+      await dbFetch('delete', {id: rowId});
+      setDbList(p => p.filter(r => r.id !== rowId));
+      setDbMsg('🗑 삭제 완료 — ' + label);
+    } catch(e) {
+      setDbMsg('❌ 삭제 실패: ' + e.message);
+    } finally {
+      setDbLoading(false);
+    }
+  };
+
+  // 피드백 메시지 자동 제거
+  React.useEffect(() => {
+    if (!dbMsg) return;
+    const t = setTimeout(() => setDbMsg(''), 4000);
+    return () => clearTimeout(t);
+  }, [dbMsg]);
+
+  // ── 주소 → 좌표 자동 지오코딩 (Nominatim) ──
   const geocode = async (id, addr) => {
     if (!addr) return;
     try {
@@ -234,11 +354,80 @@ function App() {
           <div style={{fontSize:'10px',letterSpacing:'0.15em',color:'#c9a84c',marginBottom:'3px'}}>TIMES REAL ESTATE · 타임즈부동산중개</div>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:'22px',color:'#f7f4ef',fontWeight:400}}>건축물대장 비교 조회</div>
         </div>
-        <div style={{fontSize:'11px',color:'#c9a84c',border:'1px solid #c9a84c',padding:'6px 12px',display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'2px'}}>
-          <span>건축물대장정보 서비스</span>
-          <span style={{fontSize:'9px',opacity:0.7,letterSpacing:'0.05em'}}>{VERSION}</span>
+        <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+          {/* DB 패널 토글 버튼 */}
+          <button
+            onClick={() => { setShowDb(p => !p); if(!showDbPanel) dbLoadList(); }}
+            style={{background: showDbPanel ? '#c9a84c' : 'transparent', border:'1px solid #c9a84c', color: showDbPanel ? '#0d1b2a' : '#c9a84c', padding:'7px 14px', fontSize:'12px', cursor:'pointer', display:'flex', alignItems:'center', gap:'6px'}}>
+            🗄 저장 목록
+            {dbList.length > 0 && <span style={{background:'#c9a84c',color:'#0d1b2a',borderRadius:'10px',padding:'0px 6px',fontSize:'10px',fontWeight:700,marginLeft:'2px'}}>{dbList.length}</span>}
+          </button>
+          <div style={{fontSize:'11px',color:'#c9a84c',border:'1px solid #c9a84c',padding:'6px 12px',display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'2px'}}>
+            <span>건축물대장정보 서비스</span>
+            <span style={{fontSize:'9px',opacity:0.7,letterSpacing:'0.05em'}}>{VERSION}</span>
+          </div>
         </div>
       </header>
+
+      {/* ── DB 저장 목록 패널 ── */}
+      {showDbPanel && (
+        <div className="no-print" style={{background:'#0d1b2a',borderBottom:'2px solid #c9a84c',padding:'14px 28px'}}>
+          <div style={{maxWidth:'1280px',margin:'0 auto'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+              <span style={{color:'#c9a84c',fontSize:'12px',fontWeight:600,letterSpacing:'0.1em'}}>🗄 저장된 건물 목록</span>
+              <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+                {dbMsg && (
+                  <span style={{fontSize:'12px',color: dbMsg.startsWith('✅') ? '#7fdc8a' : dbMsg.startsWith('🗑') ? '#f0c060' : '#f08080', background:'rgba(255,255,255,0.08)', padding:'4px 10px'}}>
+                    {dbMsg}
+                  </span>
+                )}
+                <button onClick={dbLoadList} disabled={dbLoading}
+                  style={{background:'transparent',border:'1px solid #555',color:'#aaa',padding:'5px 10px',fontSize:'11px',cursor:'pointer'}}>
+                  {dbLoading ? '로딩…' : '🔄 새로고침'}
+                </button>
+                <button onClick={() => setShowDb(false)}
+                  style={{background:'transparent',border:'none',color:'#666',fontSize:'18px',cursor:'pointer',lineHeight:1,padding:'4px'}}>×</button>
+              </div>
+            </div>
+            {dbList.length === 0 && !dbLoading && (
+              <div style={{color:'#555',fontSize:'12px',padding:'16px 0',textAlign:'center'}}>저장된 건물이 없습니다. 건물 조회 후 💾 저장 버튼을 누르세요.</div>
+            )}
+            {dbLoading && (
+              <div style={{color:'#888',fontSize:'12px',padding:'16px 0',textAlign:'center'}}>불러오는 중…</div>
+            )}
+            {!dbLoading && dbList.length > 0 && (
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:'8px',maxHeight:'280px',overflowY:'auto'}}>
+                {dbList.map(row => (
+                  <div key={row.id} style={{background:'rgba(255,255,255,0.05)',border:'1px solid #2a3a4a',padding:'10px 12px',display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'8px'}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:'12px',color:'#f7f4ef',fontWeight:600,marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                        {row.alias || row.bld_nm || row.plat_plc || '이름 없음'}
+                      </div>
+                      <div style={{fontSize:'10px',color:'#888',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                        {row.plat_plc || '—'}
+                      </div>
+                      {row.price && <div style={{fontSize:'10px',color:'#c9a84c',marginTop:'2px'}}>{row.price}억원</div>}
+                      <div style={{fontSize:'9px',color:'#555',marginTop:'3px'}}>
+                        {row.updated_at ? new Date(row.updated_at).toLocaleDateString('ko-KR') : ''}
+                      </div>
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:'4px',flexShrink:0}}>
+                      <button onClick={() => dbLoad(row.id)}
+                        style={{background:'#1a3a5a',border:'1px solid #3a6fa0',color:'#7fb8f0',padding:'4px 8px',fontSize:'11px',cursor:'pointer',whiteSpace:'nowrap'}}>
+                        📂 불러오기
+                      </button>
+                      <button onClick={() => dbDelete(row.id, row.alias || row.plat_plc || 'ID:'+row.id.slice(0,8))}
+                        style={{background:'transparent',border:'1px solid #4a2a2a',color:'#c08080',padding:'4px 8px',fontSize:'11px',cursor:'pointer'}}>
+                        🗑 삭제
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 입력 패널 — 화면 전용 */}
       <section className="no-print" style={{background:'#ede9e1',padding:'18px 28px 20px',borderBottom:'1px solid #d8d4cc'}}>
@@ -335,28 +524,35 @@ function App() {
         {hasR && vw==='cards' && (
           <>
             <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px',paddingBottom:'0'}}>
-              {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} onManual={upManual} />)}
+              {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} onManual={upManual} onSave={() => dbSave(e)} isSaving={dbSaving[e.id]} dbMsg={dbMsg} />)}
             </div>
 
             {/* 카드 하단 건물추가 + 전체삭제 */}
-            <div className="no-print" style={{display:'flex',justifyContent:'center',gap:'10px',marginTop:'24px',paddingBottom:'8px'}}>
-              <button className="blt" style={{fontSize:'12px',padding:'9px 22px'}}
-                onClick={() => { add(); window.scrollTo({top:0, behavior:'smooth'}); }}>
-                + 건물 추가
-              </button>
-              {ents.length > 1 && (
-                <button className="blt" style={{fontSize:'12px',padding:'9px 22px',color:'#c0392b',borderColor:'#e8b4b0'}}
-                  onClick={() => { if(window.confirm('모든 건물을 삭제하시겠습니까?')) setE([mk(1)]); }}>
-                  전체 삭제
-                </button>
+            <div className="no-print" style={{display:'flex',justifyContent:'center',gap:'10px',marginTop:'24px',paddingBottom:'8px',flexDirection:'column',alignItems:'center'}}>
+              {dbMsg && (
+                <div style={{fontSize:'12px',padding:'6px 16px',background: dbMsg.startsWith('✅') ? '#f0fff4' : '#fff5f4', color: dbMsg.startsWith('✅') ? '#2e7d32' : '#c0392b', border:'1px solid ' + (dbMsg.startsWith('✅') ? '#a8d5b0' : '#e8b4b0')}}>
+                  {dbMsg}
+                </div>
               )}
+              <div style={{display:'flex',gap:'10px'}}>
+                <button className="blt" style={{fontSize:'12px',padding:'9px 22px'}}
+                  onClick={() => { add(); window.scrollTo({top:0, behavior:'smooth'}); }}>
+                  + 건물 추가
+                </button>
+                {ents.length > 1 && (
+                  <button className="blt" style={{fontSize:'12px',padding:'9px 22px',color:'#c0392b',borderColor:'#e8b4b0'}}
+                    onClick={() => { if(window.confirm('모든 건물을 삭제하시겠습니까?')) setE([mk(1)]); }}>
+                    전체 삭제
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* 카드 인쇄 푸터 — @bottom-center CSS로 대체됨 */}
           </>
         )}
         {hasR && vw==='table'  && <CmpT entries={rE} togglePrint={togglePrint} printMode={printMode} reportTitle={reportTitle} reportDate={reportDate} totalSel={rE.filter(e=>e.printSel).length} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />}
-        {hasR && vw==='report' && <ReportView entries={rE} reportTitle={reportTitle} reportDate={reportDate} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes} />}
+        {hasR && vw==='report' && <ReportView entries={rE} reportTitle={reportTitle} reportDate={reportDate} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes} onSave={dbSave} dbSaving={dbSaving} />}
       </main>
 
       {/* ── 출력 정보 설정 패널 (화면 전용) ── */}
@@ -516,7 +712,7 @@ function ERow({ e, i, n, sidos, sgs, ds, up, rm, go }) {
 }
 
 // ── 결과 카드 ──
-function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
+function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving }) {
   const it = e.res;
   const m  = e.manual || {};
   const [showManual, setShowManual] = React.useState(false);
@@ -707,6 +903,12 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual }) {
             title="검색용 주소를 클립보드에 복사합니다"
             style={{fontSize:'10px',padding:'3px 8px',background:'#f7f4ef',color:'#888',border:'1px solid #e0dcd4',cursor:'pointer'}}>
             📋 주소 복사
+          </button>
+          {/* DB 저장 버튼 */}
+          <button onClick={onSave} disabled={isSaving}
+            title={e.dbId ? 'DB 업데이트' : 'DB에 새로 저장'}
+            style={{fontSize:'10px',padding:'3px 10px',background: e.dbId ? '#e8f5e9' : '#0d1b2a',color: e.dbId ? '#2e7d32' : '#c9a84c',border:'1px solid ' + (e.dbId ? '#a8d5b0' : '#c9a84c'),cursor:'pointer',fontWeight:600,marginLeft:'auto'}}>
+            {isSaving ? '저장 중…' : (e.dbId ? '✅ DB 업데이트' : '💾 DB 저장')}
           </button>
         </div>
 
@@ -992,21 +1194,22 @@ const LEGAL_VL = {
 };
 
 // ── 리포트 뷰 ──
-function ReportView({ entries, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes }) {
+function ReportView({ entries, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes, onSave, dbSaving }) {
   return (
     <div>
       {entries.map((e, i) => (
         <ReportCard key={e.id} e={e} i={i}
           reportTitle={reportTitle} reportDate={reportDate}
           bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc}
-          upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes} />
+          upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes}
+          onSave={() => onSave(e)} isSaving={dbSaving[e.id]} />
       ))}
     </div>
   );
 }
 
 // ── 개별 건물 리포트 카드 ──
-function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes }) {
+function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes, onSave, isSaving }) {
   const it      = e.res;
   const mg      = mergeEntry(e);
   const an      = e.analysis  || {};
@@ -1114,7 +1317,12 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
             <div style={{fontSize:'10px',color:'#888',marginTop:'4px'}}>{it.platPlc}</div>
           </div>
           <div style={{textAlign:'right',flexShrink:0,marginLeft:'12px',marginTop:'2px'}}>
-            <div style={{fontSize:'11px',color:'#555',fontWeight:500}}>{reportDate}</div>
+            <div style={{fontSize:'11px',color:'#555',fontWeight:500,marginBottom:'6px'}}>{reportDate}</div>
+            {/* DB 저장 버튼 — 화면 전용 */}
+            <button className="no-print" onClick={onSave} disabled={isSaving}
+              style={{background: e.dbId ? '#e8f5e9' : '#0d1b2a', color: e.dbId ? '#2e7d32' : '#c9a84c', border:'1px solid ' + (e.dbId ? '#a8d5b0' : '#c9a84c'), padding:'6px 12px', fontSize:'11px', cursor:'pointer', fontWeight:600, whiteSpace:'nowrap'}}>
+              {isSaving ? '저장 중…' : (e.dbId ? '✅ DB 업데이트' : '💾 DB 저장')}
+            </button>
           </div>
         </div>
       </div>
