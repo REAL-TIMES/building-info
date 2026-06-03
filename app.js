@@ -4,10 +4,11 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.6.2';
+const VERSION = 'v1.7.0';
+// v1.7.0: 자동 저장(디바운스)·세션 자동 복원 — 새로고침해도 작업하던 건물 자동 재표시
 // v1.6.2: 전체 고딕폰트 전환·비교표/리포트 배경밸런스·비교표 인쇄 로고푸터·푸터 정보 강조
-// v1.6.1: 출력정보(로고·상호·담당자 등) Supabase app_config 자동 저장/불러오기
-// v1.6.0: Supabase DB 연동 — 저장·불러오기·목록·삭제
+// v1.6.1: 출력정보 Supabase app_config 자동 저장/불러오기
+// v1.6.0: Supabase DB 연동
 
 const { useState } = React;
 
@@ -196,8 +197,42 @@ function App() {
       setDbLoading(false);
     }
   };
+  // ── 조용한 자동 저장 (메시지 없이 백그라운드 저장) ──
+  // ent를 직접 받지 않고 id로 최신 상태를 읽어 저장 (디바운스 클로저 문제 방지)
+  const autoSaveById = (entId) => {
+    setE(prev => {
+      const ent = prev.find(x => x.id === entId);
+      if (!ent || !ent.res) return prev;
+      // 비동기 저장 (state 변경 없이 백그라운드 실행)
+      const body = {
+        id:           ent.dbId || undefined,
+        alias:        ent.alias        || null,
+        plat_plc:     ent.res.platPlc  || null,
+        new_plat_plc: ent.res.newPlatPlc || null,
+        bld_nm:       ent.res.bldNm    || null,
+        api_data:     ent.res,
+        manual:       ent.manual       || {},
+        price:        ent.price        || null,
+        photos:       ent.photos       || [],
+        analysis:     ent.analysis     || {},
+        income:       ent.income       || {},
+        notes:        ent.notes        || null,
+        memo:         ent.memo         || null,
+      };
+      dbFetch('upsert', {}, body).then(d => {
+        const savedId = d.row && d.row.id;
+        if (savedId && !ent.dbId) {
+          // 신규 저장이면 dbId 기록
+          setE(p2 => p2.map(x => x.id === entId ? {...x, dbId: savedId, autoSaved: true} : x));
+        } else {
+          setE(p2 => p2.map(x => x.id === entId ? {...x, autoSaved: true} : x));
+        }
+      }).catch(() => {/* 자동저장 실패는 조용히 무시 */});
+      return prev;  // state는 그대로
+    });
+  };
 
-  // 단건 저장 (현재 조회된 건물 → DB 저장)
+  // 단건 저장 (현재 조회된 건물 → DB 저장) — 수동 버튼용
   const dbSave = async (ent) => {
     if (!ent.res) return;
     setDbSaving(p => ({...p, [ent.id]: true}));
@@ -332,6 +367,95 @@ function App() {
   // ── 앱 시작 시 자동으로 출력 정보 불러오기 ──
   React.useEffect(() => {
     configLoad();
+  }, []);
+
+  // ── 자동 저장 (디바운스) ──
+  // 저장 대상 필드만 추려 직렬화 → 변경 시에만 1.2초 후 저장
+  const saveTimers = React.useRef({});
+  const lastSaved  = React.useRef({});
+  React.useEffect(() => {
+    ents.forEach(ent => {
+      if (!ent.res) return;
+      const snapshot = JSON.stringify({
+        alias: ent.alias, price: ent.price, manual: ent.manual,
+        photos: ent.photos, analysis: ent.analysis, income: ent.income,
+        notes: ent.notes, memo: ent.memo,
+        plat: ent.res.platPlc,
+      });
+      // 직전 저장본과 동일하면 스킵
+      if (lastSaved.current[ent.id] === snapshot) return;
+      // 기존 타이머 취소 후 재설정 (디바운스)
+      if (saveTimers.current[ent.id]) clearTimeout(saveTimers.current[ent.id]);
+      saveTimers.current[ent.id] = setTimeout(() => {
+        lastSaved.current[ent.id] = snapshot;
+        autoSaveById(ent.id);
+      }, 1200);
+    });
+  }, [ents]);
+
+  // ── 세션 자동 복원 ──
+  // 현재 화면에 떠 있던 건물들의 dbId 목록을 app_config에 기록 →
+  // 새로고침/다른PC 접속 시 그 목록을 자동으로 다시 불러옴
+  const [sessionRestored, setSR] = React.useState(false);
+
+  // 화면 건물 dbId 목록을 세션으로 저장 (디바운스)
+  const sessionTimer = React.useRef(null);
+  React.useEffect(() => {
+    if (!sessionRestored) return;  // 복원 완료 전엔 저장 안 함 (덮어쓰기 방지)
+    const ids = ents.filter(e => e.dbId).map(e => e.dbId);
+    if (sessionTimer.current) clearTimeout(sessionTimer.current);
+    sessionTimer.current = setTimeout(() => {
+      fetch('/api/db?action=config-set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'building-session', data: { ids } })
+      }).catch(() => {});
+    }, 1500);
+  }, [ents, sessionRestored]);
+
+  // 앱 시작 시 마지막 세션 건물들 자동 복원
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/db?action=config-get&key=building-session');
+        const d = await res.json();
+        const ids = (d.data && d.data.ids) || [];
+        if (ids.length === 0) { setSR(true); return; }
+        const loaded = [];
+        for (const rid of ids) {
+          try {
+            const gr = await fetch('/api/db?action=get&id=' + encodeURIComponent(rid));
+            const gd = await gr.json();
+            const row = gd.row;
+            if (row && row.api_data) {
+              const ne = mk(_id++);
+              ne.res      = row.api_data;
+              ne.alias    = row.alias    || '';
+              ne.price    = row.price    || '';
+              ne.manual   = row.manual   || {};
+              ne.photos   = row.photos   || [];
+              ne.analysis = row.analysis || {};
+              ne.income   = row.income   || {};
+              ne.notes    = row.notes    || '';
+              ne.memo     = row.memo     || '';
+              ne.dbId     = row.id;
+              ne.autoSaved = true;
+              loaded.push(ne);
+              // 복원 직후 스냅샷도 기록해 즉시 재저장 방지
+              lastSaved.current[ne.id] = JSON.stringify({
+                alias: ne.alias, price: ne.price, manual: ne.manual,
+                photos: ne.photos, analysis: ne.analysis, income: ne.income,
+                notes: ne.notes, memo: ne.memo, plat: ne.res.platPlc,
+              });
+            }
+          } catch(e) {/* 개별 건물 복원 실패 무시 */}
+        }
+        if (loaded.length > 0) {
+          setE(loaded);  // 빈 초기 엔트리 대신 복원된 건물로 교체
+        }
+      } catch(e) {/* 세션 복원 실패 무시 */}
+      finally { setSR(true); }
+    })();
   }, []);
 
   // ── 주소 → 좌표 자동 지오코딩 (Nominatim) ──
@@ -962,11 +1086,11 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving }) {
             style={{fontSize:'10px',padding:'3px 8px',background:'#f7f4ef',color:'#888',border:'1px solid #e0dcd4',cursor:'pointer'}}>
             📋 주소 복사
           </button>
-          {/* DB 저장 버튼 */}
+          {/* 자동 저장 상태 표시 (수동 즉시저장도 가능) */}
           <button onClick={onSave} disabled={isSaving}
-            title={e.dbId ? 'DB 업데이트' : 'DB에 새로 저장'}
-            style={{fontSize:'10px',padding:'3px 10px',background: e.dbId ? '#e8f5e9' : '#0d1b2a',color: e.dbId ? '#2e7d32' : '#c9a84c',border:'1px solid ' + (e.dbId ? '#a8d5b0' : '#c9a84c'),cursor:'pointer',fontWeight:600,marginLeft:'auto'}}>
-            {isSaving ? '저장 중…' : (e.dbId ? '✅ DB 업데이트' : '💾 DB 저장')}
+            title="자동 저장됩니다. 클릭 시 즉시 저장"
+            style={{fontSize:'10px',padding:'3px 10px',background: e.dbId ? '#e8f5e9' : '#f7f4ef',color: e.dbId ? '#2e7d32' : '#aaa',border:'1px solid ' + (e.dbId ? '#a8d5b0' : '#e0dcd4'),cursor:'pointer',fontWeight:600,marginLeft:'auto'}}>
+            {isSaving ? '저장 중…' : (e.dbId ? '✅ 자동저장됨' : '⏳ 저장 대기…')}
           </button>
         </div>
 
@@ -1405,10 +1529,11 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           </div>
           <div style={{textAlign:'right',flexShrink:0,marginLeft:'12px',marginTop:'2px'}}>
             <div style={{fontSize:'11px',color:'#555',fontWeight:500,marginBottom:'6px'}}>{reportDate}</div>
-            {/* DB 저장 버튼 — 화면 전용 */}
+            {/* 자동 저장 상태 표시 — 화면 전용 */}
             <button className="no-print" onClick={onSave} disabled={isSaving}
-              style={{background: e.dbId ? '#e8f5e9' : '#0d1b2a', color: e.dbId ? '#2e7d32' : '#c9a84c', border:'1px solid ' + (e.dbId ? '#a8d5b0' : '#c9a84c'), padding:'6px 12px', fontSize:'11px', cursor:'pointer', fontWeight:600, whiteSpace:'nowrap'}}>
-              {isSaving ? '저장 중…' : (e.dbId ? '✅ DB 업데이트' : '💾 DB 저장')}
+              title="자동 저장됩니다. 클릭 시 즉시 저장"
+              style={{background: e.dbId ? '#e8f5e9' : '#f7f4ef', color: e.dbId ? '#2e7d32' : '#aaa', border:'1px solid ' + (e.dbId ? '#a8d5b0' : '#e0dcd4'), padding:'6px 12px', fontSize:'11px', cursor:'pointer', fontWeight:600, whiteSpace:'nowrap'}}>
+              {isSaving ? '저장 중…' : (e.dbId ? '✅ 자동저장됨' : '⏳ 저장 대기…')}
             </button>
           </div>
         </div>
