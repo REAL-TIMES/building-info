@@ -4,11 +4,11 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.7.4';
-// v1.7.4: 리포트 인쇄 시 좌우 여백 제거(페이지 폭 꽉 채움)·헤더 상단 띠 추가로 빈공간 해소
-// v1.7.3: 전환바 상단 고정(sticky)·리포트 인쇄 배경 줄무늬 밸런스
-// v1.7.2: 카드/리포트 ✏수정 버튼
-// v1.7.x: 자동저장·세션복원·고딕폰트·Supabase DB연동
+const VERSION = 'v1.7.5';
+// v1.7.5: 리포트 인쇄 — 베이지 배경 비침 제거(흰배경)·각 카드 페이지높이 채움·푸터 페이지 하단 고정
+// v1.7.4: 리포트 인쇄 좌우여백 제거·헤더 상단 띠
+// v1.7.3: 전환바 sticky·리포트 배경 줄무늬
+// v1.7.x: 자동저장·세션복원·수정버튼·고딕폰트·Supabase DB연동
 
 const { useState } = React;
 
@@ -693,10 +693,14 @@ function App() {
       {/* 인쇄 방향 동적 스타일 */}
       <style dangerouslySetInnerHTML={{__html:
         vw === 'report'
-          ? ('@media print { @page { size: A4 portrait !important; margin: 10mm 12mm 14mm; }'
-            + ' .print-main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; }'
-            + ' .report-card { page-break-after: always; break-after: page; margin-bottom: 0 !important; }'
+          ? ('@media print { @page { size: A4 portrait !important; margin: 10mm 12mm 12mm; }'
+            + ' html, body { background: #ffffff !important; }'
+            + ' .print-main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; background: #ffffff !important; }'
+            + ' .report-card { page-break-after: always; break-after: page; margin-bottom: 0 !important;'
+            + '   display: flex !important; flex-direction: column !important; min-height: 271mm; box-sizing: border-box; }'
             + ' .report-card:last-child { page-break-after: auto; break-after: auto; }'
+            + ' .report-body { flex: 1 1 auto !important; }'              /* 본문이 남는 공간 차지 */
+            + ' .report-footer { margin-top: auto !important; }'          /* 푸터 페이지 하단 고정 */
             + ' }')
           : vw === 'table'
             ? ('@media print { @page { size: A4 landscape !important; margin: 10mm 10mm 14mm; } }')
@@ -1581,7 +1585,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
         </div>
       </div>
 
-      <div style={{padding:'22px 20px'}}>
+      <div className="report-body" style={{padding:'22px 20px'}}>
 
         {/* ── 2열: 좌(건물사진) / 우(건물기본정보) ── */}
         <div style={{display:'grid',gridTemplateColumns:'260px 1fr',gap:'24px',marginBottom:'14px',overflow:'hidden'}}>
@@ -1845,7 +1849,7 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
       </div>
 
       {/* 리포트 푸터 — CSS table (인쇄 안정) */}
-      <div className="print-only" style={{margin:'8px 20px 14px',borderTop:'1pt solid #c9a84c',paddingTop:'6pt',fontSize:'9.5pt',color:'#333'}}>
+      <div className="print-only report-footer" style={{margin:'8px 20px 14px',borderTop:'1pt solid #c9a84c',paddingTop:'6pt',fontSize:'9.5pt',color:'#333'}}>
         <table style={{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'}}>
           <tbody>
             <tr style={{verticalAlign:'middle'}}>
