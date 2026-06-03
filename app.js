@@ -4,11 +4,12 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.7.2';
-// v1.7.2: 카드/리포트에 ✏수정 버튼 — 입력폼으로 되돌려 주소·별칭·매매가 전체 수정
-// v1.7.1: 조회 성공한 행은 입력폼에서 자동 제거(빈 입력행 1개 유지)
-// v1.7.0: 자동 저장(디바운스)·세션 자동 복원
-// v1.6.x: 고딕폰트·배경밸런스·인쇄푸터·Supabase DB연동·출력정보 저장
+const VERSION = 'v1.7.3';
+// v1.7.3: 카드/비교표/리포트 전환바 상단 고정(sticky)·리포트 인쇄 배경 줄무늬 밸런스 보정
+// v1.7.2: 카드/리포트에 ✏수정 버튼
+// v1.7.1: 조회 성공한 행은 입력폼에서 자동 제거
+// v1.7.0: 자동 저장·세션 자동 복원
+// v1.6.x: 고딕폰트·Supabase DB연동·출력정보 저장
 
 const { useState } = React;
 
@@ -663,27 +664,29 @@ function App() {
         </div>
       </section>
 
-      {/* 뷰 전환 + 인쇄 — 화면 전용 */}
+      {/* 뷰 전환 + 인쇄 — 화면 전용 (스크롤해도 상단 고정) */}
       {hasR && (
-        <div className="no-print" style={{padding:'12px 28px',display:'flex',gap:'8px',justifyContent:'space-between',maxWidth:'1280px',margin:'0 auto'}}>
-          <div style={{display:'flex',gap:'6px'}}>
-            <button className={vw==='cards'  ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('cards')}>▣ 카드</button>
-            <button className={vw==='table'  ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('table')}>≡ 비교표</button>
-            <button className={vw==='report' ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('report')}>📄 리포트</button>
-          </div>
-          <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
-            {vw === 'cards' && <>
-              <span style={{fontSize:'11px',color:'#aaa'}}>인쇄 방향:</span>
-              <button className={printMode==='landscape' ? 'bdk' : 'blt'} style={{fontSize:'11px',padding:'5px 10px'}} onClick={() => setPM('landscape')}>가로 3칸</button>
-              <button className={printMode==='portrait'  ? 'bdk' : 'blt'} style={{fontSize:'11px',padding:'5px 10px'}} onClick={() => setPM('portrait')}>세로 4칸</button>
-            </>}
-            <input type="text" placeholder="보고서 제목" value={reportTitle}
-              onChange={v => setRT(v.target.value)}
-              style={{width:'180px',fontSize:'12px'}} />
-            <input type="date" value={reportDate}
-              onChange={v => setRD(v.target.value)}
-              style={{fontSize:'12px',width:'140px'}} />
-            <button className="blt" style={{fontSize:'12px'}} onClick={() => window.print()}>🖨 인쇄 / PDF</button>
+        <div className="no-print" style={{position:'sticky',top:0,zIndex:90,background:'#f7f4ef',borderBottom:'1px solid #e0dcd4',boxShadow:'0 2px 6px rgba(0,0,0,0.06)'}}>
+          <div style={{padding:'12px 28px',display:'flex',gap:'8px',justifyContent:'space-between',maxWidth:'1280px',margin:'0 auto',flexWrap:'wrap',alignItems:'center'}}>
+            <div style={{display:'flex',gap:'6px'}}>
+              <button className={vw==='cards'  ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('cards')}>▣ 카드</button>
+              <button className={vw==='table'  ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('table')}>≡ 비교표</button>
+              <button className={vw==='report' ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('report')}>📄 리포트</button>
+            </div>
+            <div style={{display:'flex',gap:'6px',alignItems:'center',flexWrap:'wrap'}}>
+              {vw === 'cards' && <>
+                <span style={{fontSize:'11px',color:'#aaa'}}>인쇄 방향:</span>
+                <button className={printMode==='landscape' ? 'bdk' : 'blt'} style={{fontSize:'11px',padding:'5px 10px'}} onClick={() => setPM('landscape')}>가로 3칸</button>
+                <button className={printMode==='portrait'  ? 'bdk' : 'blt'} style={{fontSize:'11px',padding:'5px 10px'}} onClick={() => setPM('portrait')}>세로 4칸</button>
+              </>}
+              <input type="text" placeholder="보고서 제목" value={reportTitle}
+                onChange={v => setRT(v.target.value)}
+                style={{width:'180px',fontSize:'12px'}} />
+              <input type="date" value={reportDate}
+                onChange={v => setRD(v.target.value)}
+                style={{fontSize:'12px',width:'140px'}} />
+              <button className="bdk" style={{fontSize:'12px'}} onClick={() => window.print()}>🖨 인쇄 / PDF</button>
+            </div>
           </div>
         </div>
       )}
@@ -1660,10 +1663,10 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                   ['층수',     '지상'+(mg.grndFlrCnt||0)+'층/지하'+(mg.ugrndFlrCnt||0)+'층'],
                   ['세대수',   mg.hhldCnt ? parseInt(mg.hhldCnt).toLocaleString()+'세대' : '—'],
                   ['사용승인', dt(mg.useAprDay) + (bldAge ? ' ('+bldAge+'년차)' : '')],
-                ].map(([k,v,big]) => (
+                ].map(([k,v,big], ri) => (
                   <tr key={k}>
-                    <td style={{padding:'4px 6px',background:big?'#fff3dc':'#f5f2eb',color:big?'#a05800':'#666',fontWeight:500,width:'62px',borderBottom:'1px solid #eee',whiteSpace:'nowrap',fontSize:'10px'}}>{k}</td>
-                    <td style={{padding:'4px 8px',borderBottom:'1px solid #eee',color:'#1a1a2e',fontSize:big?'15px':'12px',fontWeight:big?700:400}}>{v}</td>
+                    <td style={{padding:'4px 6px',background:big?'#fff3dc':'#ede9e1',color:big?'#a05800':'#555',fontWeight:600,width:'62px',borderBottom:'1px solid #e4e0d8',whiteSpace:'nowrap',fontSize:'10px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>{k}</td>
+                    <td style={{padding:'4px 8px',borderBottom:'1px solid #e4e0d8',color:'#1a1a2e',fontSize:big?'15px':'12px',fontWeight:big?700:400,background: ri%2===1 ? '#faf8f4' : '#ffffff',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>{v}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1687,10 +1690,10 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                     {label:'대출금액 (만원)',field:'loanAmt'},
                     {label:'대출금리 (%)', field:'loanRate'},
                     {label:'취득세율 (%)', field:'acquiTax'},
-                  ].map(({label, field}) => (
+                  ].map(({label, field}, ri) => (
                     <tr key={label}>
-                      <td style={{padding:'3px 6px',background:'#f5f2eb',color:'#666',width:'100px',borderBottom:'1px solid #eee',fontSize:'10px',whiteSpace:'nowrap'}}>{label}</td>
-                      <td style={{padding:'3px 8px',borderBottom:'1px solid #eee',textAlign:'right'}}>
+                      <td style={{padding:'3px 6px',background:'#ede9e1',color:'#555',fontWeight:600,width:'100px',borderBottom:'1px solid #e4e0d8',fontSize:'10px',whiteSpace:'nowrap',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>{label}</td>
+                      <td style={{padding:'3px 8px',borderBottom:'1px solid #e4e0d8',textAlign:'right',background: ri%2===1 ? '#faf8f4' : '#ffffff',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
                         <input type="text" className="screen-only" value={ic[field]||''} placeholder="0"
                           onChange={ev => upIncome(e.id, field, ev.target.value)} style={{...numSt,background:'white',textAlign:'right'}} />
                         <span className="print-only" style={{fontSize:'12px',display:'block',textAlign:'right'}}>
@@ -1717,10 +1720,10 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
                     {label:'취득세',        val:fmtAmt(acqAmt), hi:false},
                     {label:'실 투자금',     val:fmtAmt(realInv), hi:false},
                     {label:'연간 수익률',   val:realInv>0?yldRate.toFixed(2)+'%':'—', hi:true},
-                  ].map(({label, val, hi}) => (
+                  ].map(({label, val, hi}, ri) => (
                     <tr key={label}>
-                      <td style={{padding:'3px 6px',background:hi?'#fff3dc':'#f5f2eb',color:hi?'#a05800':'#666',width:'100px',borderBottom:'1px solid #eee',fontSize:'10px',fontWeight:hi?700:400,whiteSpace:'nowrap'}}>{label}</td>
-                      <td style={{padding:'3px 8px',borderBottom:'1px solid #eee',fontWeight:hi?700:400,color:hi?'#0d1b2a':'#333',textAlign:'right',fontSize:'12px'}}>{val}</td>
+                      <td style={{padding:'3px 6px',background:hi?'#fff3dc':'#ede9e1',color:hi?'#a05800':'#555',width:'100px',borderBottom:'1px solid #e4e0d8',fontSize:'10px',fontWeight:hi?700:600,whiteSpace:'nowrap',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>{label}</td>
+                      <td style={{padding:'3px 8px',borderBottom:'1px solid #e4e0d8',fontWeight:hi?700:400,color:hi?'#0d1b2a':'#333',textAlign:'right',fontSize:'12px',background: hi ? '#fffaf0' : (ri%2===1 ? '#faf8f4' : '#ffffff'),WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>{val}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1755,15 +1758,15 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           )}
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'8px',marginBottom:'8px',fontSize:'11px'}}>
             {/* 행1 */}
-            <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
+            <div style={{background:'#f5f2eb',padding:'7px 10px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
               <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>용도지역</div>
               <div style={{fontWeight:600,color:'#0d1b2a',fontSize:'12px'}}>{zoning||'—'}</div>
             </div>
-            <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
+            <div style={{background:'#f5f2eb',padding:'7px 10px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
               <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>법정 최대 용적률</div>
               <div style={{fontWeight:600,color:'#0d1b2a',fontSize:'12px'}}>{legalVl ? legalVl+'%' : '확인 필요'}</div>
             </div>
-            <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
+            <div style={{background:'#f5f2eb',padding:'7px 10px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
               <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>현재 용적률</div>
               <div style={{fontWeight:700,fontSize:'13px',
                 color: currVl>0&&legalVl>0 ? (currVl>legalVl ? '#e74c3c' : '#2471a3') : '#0d1b2a',
@@ -1780,15 +1783,15 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
               </div>
             </div>
             {/* 행2 */}
-            <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
+            <div style={{background:'#f5f2eb',padding:'7px 10px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
               <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>대지면적</div>
               <div style={{fontWeight:600,color:'#0d1b2a',fontSize:'12px'}}>{platA>0 ? py(mg.platArea)+'평' : '—'}</div>
             </div>
-            <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
+            <div style={{background:'#f5f2eb',padding:'7px 10px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
               <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>최대 건축 가능 연면적</div>
               <div style={{fontWeight:600,color:'#0d1b2a',fontSize:'12px'}}>{maxArea ? (parseFloat(maxArea)/PY).toFixed(1)+'평' : '—'}</div>
             </div>
-            <div style={{background:'#f5f2eb',padding:'7px 10px'}}>
+            <div style={{background:'#f5f2eb',padding:'7px 10px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}}>
               <div style={{fontSize:'9px',color:'#aaa',marginBottom:'2px'}}>현재 연면적</div>
               <div style={{fontWeight:700,fontSize:'13px',
                 color: currArea&&maxArea ? (parseFloat(currArea)>parseFloat(maxArea) ? '#e74c3c' : '#2471a3') : '#0d1b2a',
