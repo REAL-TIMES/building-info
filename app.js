@@ -4,11 +4,11 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.7.1';
-// v1.7.1: 조회 성공한 행은 입력폼에서 자동 제거(빈 입력행 1개 유지) — 위/아래 중복 해소
+const VERSION = 'v1.7.2';
+// v1.7.2: 카드/리포트에 ✏수정 버튼 — 입력폼으로 되돌려 주소·별칭·매매가 전체 수정
+// v1.7.1: 조회 성공한 행은 입력폼에서 자동 제거(빈 입력행 1개 유지)
 // v1.7.0: 자동 저장(디바운스)·세션 자동 복원
-// v1.6.2: 전체 고딕폰트 전환·비교표/리포트 배경밸런스·비교표 인쇄 로고푸터·푸터 정보 강조
-// v1.6.x: Supabase DB 연동·출력정보 저장
+// v1.6.x: 고딕폰트·배경밸런스·인쇄푸터·Supabase DB연동·출력정보 저장
 
 const { useState } = React;
 
@@ -518,6 +518,26 @@ function App() {
 
   const sgs   = s     => Object.keys(R[s] || {}).sort();
   const ds    = (s,g) => Object.keys((R[s] && R[s][g] && R[s][g].d) || {}).sort();
+
+  // ── 카드 → 입력폼으로 되돌려 수정 ──
+  // res를 비우면 입력폼에 다시 나타남. 별칭·매매가·수기·사진 등은 그대로 보존.
+  const edit = (id) => {
+    setE(p => p.map(e => {
+      if (e.id !== id) return e;
+      // 입력값(sido/sg/dong/bj)이 비어있으면(세션 복원분) 주소에서 역추적은 어려우므로
+      // 코드 직접입력 모드로 전환해 기존 res의 코드를 채워준다
+      const patch = { res: null, err: null };
+      if (!e.bj && e.res) {
+        // 세션 복원 등으로 입력값이 없는 경우: 코드 직접입력으로 복원
+        patch.man = true;
+        patch.mSg = e.res.sigunguCd || '';
+        patch.mD  = e.res.bjdongCd  || '';
+        patch.bj  = (parseInt(e.res.bun)||0) + (parseInt(e.res.ji)>0 ? '-'+parseInt(e.res.ji) : '');
+      }
+      return {...e, ...patch};
+    }));
+    window.scrollTo({top:0, behavior:'smooth'});
+  };
   const sidos = Object.keys(R);
   const rE    = ents.filter(e => e.res);          // 조회 완료 (카드 표시용)
   const pendingE = ents.filter(e => !e.res);      // 미조회 (입력폼 표시용)
@@ -705,7 +725,7 @@ function App() {
         {hasR && vw==='cards' && (
           <>
             <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px',paddingBottom:'0'}}>
-              {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} onManual={upManual} onSave={() => dbSave(e)} isSaving={dbSaving[e.id]} dbMsg={dbMsg} />)}
+              {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} onManual={upManual} onSave={() => dbSave(e)} isSaving={dbSaving[e.id]} dbMsg={dbMsg} onEdit={() => edit(e.id)} />)}
             </div>
 
             {/* 카드 하단 건물추가 + 전체삭제 */}
@@ -733,7 +753,7 @@ function App() {
           </>
         )}
         {hasR && vw==='table'  && <CmpT entries={rE} togglePrint={togglePrint} printMode={printMode} reportTitle={reportTitle} reportDate={reportDate} totalSel={rE.filter(e=>e.printSel).length} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />}
-        {hasR && vw==='report' && <ReportView entries={rE} reportTitle={reportTitle} reportDate={reportDate} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes} onSave={dbSave} dbSaving={dbSaving} />}
+        {hasR && vw==='report' && <ReportView entries={rE} reportTitle={reportTitle} reportDate={reportDate} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes} onSave={dbSave} dbSaving={dbSaving} onEdit={edit} />}
       </main>
 
       {/* ── 출력 정보 설정 패널 (화면 전용) ── */}
@@ -897,7 +917,7 @@ function ERow({ e, i, n, sidos, sgs, ds, up, rm, go }) {
 }
 
 // ── 결과 카드 ──
-function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving }) {
+function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving, onEdit }) {
   const it = e.res;
   const m  = e.manual || {};
   const [showManual, setShowManual] = React.useState(false);
@@ -976,8 +996,13 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving }) {
         출력
       </label>
 
-      {/* 번호 + 삭제 버튼 */}
+      {/* 번호 + 수정 + 삭제 버튼 */}
       <div style={{position:'absolute',top:0,right:0,display:'flex',alignItems:'center'}}>
+        <button className="screen-only" onClick={onEdit}
+          title="입력폼으로 불러와 수정"
+          style={{background:'transparent',border:'none',color:'#bbb',fontSize:'13px',cursor:'pointer',padding:'6px 6px',lineHeight:1,transition:'color 0.15s'}}
+          onMouseEnter={ev => ev.target.style.color='#c9a84c'}
+          onMouseLeave={ev => ev.target.style.color='#bbb'}>✏</button>
         <button className="screen-only" onClick={onDelete}
           title="삭제"
           style={{background:'transparent',border:'none',color:'#ccc',fontSize:'16px',cursor:'pointer',padding:'6px 8px',lineHeight:1,transition:'color 0.15s'}}
@@ -1408,7 +1433,7 @@ const LEGAL_VL = {
 };
 
 // ── 리포트 뷰 ──
-function ReportView({ entries, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes, onSave, dbSaving }) {
+function ReportView({ entries, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes, onSave, dbSaving, onEdit }) {
   return (
     <div>
       {entries.map((e, i) => (
@@ -1416,14 +1441,14 @@ function ReportView({ entries, reportTitle, reportDate, bizName, bizAddr, agentN
           reportTitle={reportTitle} reportDate={reportDate}
           bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc}
           upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes}
-          onSave={() => onSave(e)} isSaving={dbSaving[e.id]} />
+          onSave={() => onSave(e)} isSaving={dbSaving[e.id]} onEdit={() => onEdit(e.id)} />
       ))}
     </div>
   );
 }
 
 // ── 개별 건물 리포트 카드 ──
-function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes, onSave, isSaving }) {
+function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes, onSave, isSaving, onEdit }) {
   const it      = e.res;
   const mg      = mergeEntry(e);
   const an      = e.analysis  || {};
@@ -1532,12 +1557,19 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
           </div>
           <div style={{textAlign:'right',flexShrink:0,marginLeft:'12px',marginTop:'2px'}}>
             <div style={{fontSize:'11px',color:'#555',fontWeight:500,marginBottom:'6px'}}>{reportDate}</div>
-            {/* 자동 저장 상태 표시 — 화면 전용 */}
-            <button className="no-print" onClick={onSave} disabled={isSaving}
-              title="자동 저장됩니다. 클릭 시 즉시 저장"
-              style={{background: e.dbId ? '#e8f5e9' : '#f7f4ef', color: e.dbId ? '#2e7d32' : '#aaa', border:'1px solid ' + (e.dbId ? '#a8d5b0' : '#e0dcd4'), padding:'6px 12px', fontSize:'11px', cursor:'pointer', fontWeight:600, whiteSpace:'nowrap'}}>
-              {isSaving ? '저장 중…' : (e.dbId ? '✅ 자동저장됨' : '⏳ 저장 대기…')}
-            </button>
+            {/* 수정 + 자동저장 상태 — 화면 전용 */}
+            <div className="no-print" style={{display:'flex',gap:'6px',justifyContent:'flex-end'}}>
+              <button onClick={onEdit}
+                title="입력폼으로 불러와 수정"
+                style={{background:'#fff', color:'#888', border:'1px solid #e0dcd4', padding:'6px 12px', fontSize:'11px', cursor:'pointer', fontWeight:600, whiteSpace:'nowrap'}}>
+                ✏ 수정
+              </button>
+              <button onClick={onSave} disabled={isSaving}
+                title="자동 저장됩니다. 클릭 시 즉시 저장"
+                style={{background: e.dbId ? '#e8f5e9' : '#f7f4ef', color: e.dbId ? '#2e7d32' : '#aaa', border:'1px solid ' + (e.dbId ? '#a8d5b0' : '#e0dcd4'), padding:'6px 12px', fontSize:'11px', cursor:'pointer', fontWeight:600, whiteSpace:'nowrap'}}>
+                {isSaving ? '저장 중…' : (e.dbId ? '✅ 자동저장됨' : '⏳ 저장 대기…')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
