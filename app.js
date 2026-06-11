@@ -4,7 +4,8 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.8.6';
+const VERSION = 'v1.8.7';
+// v1.8.7: 대지면적 검색 평 단위·행정동 다중선택 필터·카드 직접배치(드래그) 모드
 // v1.8.6: 검색을 저장목록→카드 화면으로 이동·카드 기본 정렬 최근 등록순·저장목록 검색 제거
 // v1.8.5: 저장목록 검색창 상시 표시·기본 정렬을 최근 등록순으로·목록 영역 확대
 // v1.8.4: 저장 목록 정렬·검색 추가(키워드·매매가/대지면적 범위)·화면 카드 정렬·카드에 작성일 표시
@@ -123,6 +124,13 @@ const valAddrKey = (s) => {
   const plc = srcAddr(s);
   return plc.replace(/\s*\S*\d+(-\d+)?번지.*$/, '').trim() || plc;
 };
+// 행정동 키: "시군구 동" (예: "서초구 방배동") — 같은 동명의 다른 구 구분
+const valDong = (s) => {
+  const key = valAddrKey(s);          // "서울특별시 서초구 방배동"
+  const parts = key.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return parts[parts.length - 2] + ' ' + parts[parts.length - 1];
+  return parts[parts.length - 1] || '';
+};
 
 // 정렬 옵션 정의 (k=키, l=라벨, t='num'|'text', 값없음 뒤로)
 const SORT_DEFS = {
@@ -157,19 +165,20 @@ const sortItems = (arr, key, asc) => {
   });
 };
 
-// 저장 목록 필터 (키워드 + 매매가/대지면적 범위)
+// 필터 (키워드 + 행정동 다중선택 + 매매가 범위 + 대지면적 범위[평])
 const filterRows = (rows, f) => rows.filter(r => {
   if (f.kw) {
     const newAddr = r.new_plat_plc || (r.res && r.res.newPlatPlc) || '';
     const hay = (srcName(r) + ' ' + srcAddr(r) + ' ' + newAddr).toLowerCase();
     if (!hay.includes(f.kw.trim().toLowerCase())) return false;
   }
+  if (f.dongs && f.dongs.length && !f.dongs.includes(valDong(r))) return false;
   const price = valPrice(r);
   if (f.priceMin !== '' && f.priceMin != null && price < parseFloat(f.priceMin)) return false;
   if (f.priceMax !== '' && f.priceMax != null && price > parseFloat(f.priceMax)) return false;
-  const area = valPlatArea(r);   // ㎡
-  if (f.areaMin !== '' && f.areaMin != null && area < parseFloat(f.areaMin)) return false;
-  if (f.areaMax !== '' && f.areaMax != null && area > parseFloat(f.areaMax)) return false;
+  const areaPy = valPlatArea(r) / PY;   // 평으로 변환해 비교
+  if (f.areaMin !== '' && f.areaMin != null && areaPy < parseFloat(f.areaMin)) return false;
+  if (f.areaMax !== '' && f.areaMax != null && areaPy > parseFloat(f.areaMax)) return false;
   return true;
 });
 
@@ -235,7 +244,8 @@ function App() {
   const [dbSort,   setDbSort]   = useState({ key:'created', asc:false });  // 저장목록 기본: 최근 등록 위로
   // 화면 카드 정렬·검색
   const [cardSort,   setCardSort]   = useState({ key:'created', asc:false });  // 카드 기본: 최근 등록 위로
-  const [cardFilter, setCardFilter] = useState({ kw:'', priceMin:'', priceMax:'', areaMin:'', areaMax:'' });
+  const [cardFilter, setCardFilter] = useState({ kw:'', dongs:[], priceMin:'', priceMax:'', areaMin:'', areaMax:'' });
+  const [draggingId, setDraggingId] = useState(null);  // 카드 직접 배치(드래그)용
   const [bizName,     setBN] = useState('');
   const [bizAddr,     setBA] = useState('');
   const [agentName,   setAN] = useState('');
@@ -645,10 +655,32 @@ function App() {
 
   // 화면 카드: 검색(필터) → 정렬
   const rEFiltered = filterRows(rE, cardFilter);
+  const isManualOrder = cardSort.key === 'none';   // 직접 배치 모드
   const rESorted   = sortItems(rEFiltered, cardSort.key, cardSort.asc);
-  const cardHasFilter = cardFilter.kw || cardFilter.priceMin || cardFilter.priceMax || cardFilter.areaMin || cardFilter.areaMax;
+  const cardHasFilter = cardFilter.kw || (cardFilter.dongs && cardFilter.dongs.length) || cardFilter.priceMin || cardFilter.priceMax || cardFilter.areaMin || cardFilter.areaMax;
+  // 화면 카드에 존재하는 행정동 목록 (다중선택 칩용)
+  const availableDongs = Array.from(new Set(rE.map(valDong).filter(Boolean))).sort((a,b) => a.localeCompare(b,'ko'));
   // 저장 목록: 정렬만 (검색은 카드 화면으로 이동)
   const dbShown  = sortItems(dbList, dbSort.key, dbSort.asc);
+
+  // 카드 직접 배치 — fromId 카드를 toId 위치로 이동 (ents 전체 기준, id로 정확히)
+  const moveCard = (fromId, toId) => {
+    if (!fromId || !toId || fromId === toId) return;
+    setE(prev => {
+      const arr = [...prev];
+      const fi = arr.findIndex(e => e.id === fromId);
+      const ti = arr.findIndex(e => e.id === toId);
+      if (fi < 0 || ti < 0) return prev;
+      const [moved] = arr.splice(fi, 1);
+      arr.splice(ti, 0, moved);
+      return arr;
+    });
+  };
+  // 행정동 칩 토글
+  const toggleDong = (dong) => setCardFilter(f => {
+    const cur = f.dongs || [];
+    return { ...f, dongs: cur.includes(dong) ? cur.filter(d => d !== dong) : [...cur, dong] };
+  });
 
   // 입력폼에 빈 행이 항상 1개는 있도록 보장
   React.useEffect(() => {
@@ -662,7 +694,7 @@ function App() {
     <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
       <select value={sort.key} onChange={v => setSort(s => ({...s, key:v.target.value}))}
         style={{fontSize:'11px',padding:'4px 6px'}}>
-        {includeNone && <option value="none">정렬: 추가순</option>}
+        {includeNone && <option value="none">직접 배치(드래그)</option>}
         {Object.keys(SORT_DEFS).map(k => <option key={k} value={k}>{SORT_DEFS[k].l}</option>)}
       </select>
       <button onClick={() => setSort(s => ({...s, asc:!s.asc}))}
@@ -850,7 +882,7 @@ function App() {
                   onChange={v => setCardFilter(f => ({...f, priceMax:v.target.value}))}
                   style={{width:'60px',fontSize:'12px',padding:'5px 6px'}} />
               </div>
-              <span style={{fontSize:'11px',color:'#999',whiteSpace:'nowrap'}}>대지(㎡)</span>
+              <span style={{fontSize:'11px',color:'#999',whiteSpace:'nowrap'}}>대지(평)</span>
               <div style={{display:'flex',alignItems:'center',gap:'3px'}}>
                 <input type="text" inputMode="decimal" value={cardFilter.areaMin} placeholder="최소"
                   onChange={v => setCardFilter(f => ({...f, areaMin:v.target.value}))}
@@ -862,12 +894,35 @@ function App() {
               </div>
               {cardHasFilter && (
                 <>
-                  <button onClick={() => setCardFilter({ kw:'', priceMin:'', priceMax:'', areaMin:'', areaMax:'' })}
+                  <button onClick={() => setCardFilter({ kw:'', dongs:[], priceMin:'', priceMax:'', areaMin:'', areaMax:'' })}
                     className="blt" style={{fontSize:'11px',padding:'5px 12px'}}>초기화</button>
                   <span style={{fontSize:'11px',color:'#888'}}>{rE.length}건 중 <b style={{color:'#0d1b2a'}}>{rEFiltered.length}건</b> 표시</span>
                 </>
               )}
             </div>
+            {/* 행정동 다중선택 칩 */}
+            {availableDongs.length > 1 && (
+              <div style={{padding:'0 28px 9px',maxWidth:'1280px',margin:'0 auto',display:'flex',gap:'6px',flexWrap:'wrap',alignItems:'center'}}>
+                <span style={{fontSize:'11px',color:'#999',whiteSpace:'nowrap',marginRight:'2px'}}>행정동</span>
+                {availableDongs.map(d => {
+                  const on = (cardFilter.dongs || []).includes(d);
+                  return (
+                    <button key={d} onClick={() => toggleDong(d)}
+                      style={{fontSize:'11px',padding:'3px 10px',cursor:'pointer',borderRadius:'12px',
+                        border:'1px solid ' + (on ? '#0d1b2a' : '#d8d4cc'),
+                        background: on ? '#0d1b2a' : '#fff', color: on ? '#fff' : '#666'}}>
+                      {d}{on ? ' ✓' : ''}
+                    </button>
+                  );
+                })}
+                {cardFilter.dongs && cardFilter.dongs.length > 0 && (
+                  <button onClick={() => setCardFilter(f => ({...f, dongs:[]}))}
+                    style={{fontSize:'10px',padding:'3px 8px',cursor:'pointer',border:'none',background:'none',color:'#aaa',textDecoration:'underline'}}>
+                    동 선택 해제
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -923,12 +978,33 @@ function App() {
             {cardHasFilter && rESorted.length === 0 && (
               <div className="no-print" style={{textAlign:'center',padding:'40px 0',color:'#aaa',fontSize:'13px'}}>
                 검색 조건에 맞는 건물이 없습니다.
-                <button onClick={() => setCardFilter({ kw:'', priceMin:'', priceMax:'', areaMin:'', areaMax:'' })}
+                <button onClick={() => setCardFilter({ kw:'', dongs:[], priceMin:'', priceMax:'', areaMin:'', areaMax:'' })}
                   className="blt" style={{fontSize:'11px',padding:'4px 12px',marginLeft:'10px'}}>검색 초기화</button>
               </div>
             )}
+            {isManualOrder && rESorted.length > 1 && (
+              <div className="no-print" style={{fontSize:'11px',color:'#c9a84c',background:'#fbf6e9',border:'1px solid #ece0c0',padding:'6px 12px',marginBottom:'10px',display:'inline-block'}}>
+                ✋ 직접 배치 모드 — 카드를 끌어다 놓아 순서를 바꿀 수 있습니다{cardHasFilter ? ' (검색 필터를 해제하면 더 편합니다)' : ''}
+              </div>
+            )}
             <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px',paddingBottom:'0'}}>
-              {rESorted.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} onManual={upManual} onSave={() => dbSave(e)} isSaving={dbSaving[e.id]} dbMsg={dbMsg} onEdit={() => edit(e.id)} />)}
+              {rESorted.map((e, i) => (
+                <div key={e.id}
+                  draggable={isManualOrder}
+                  onDragStart={isManualOrder ? (() => setDraggingId(e.id)) : undefined}
+                  onDragOver={isManualOrder ? (ev => ev.preventDefault()) : undefined}
+                  onDrop={isManualOrder ? (() => { moveCard(draggingId, e.id); setDraggingId(null); }) : undefined}
+                  onDragEnd={isManualOrder ? (() => setDraggingId(null)) : undefined}
+                  style={{
+                    opacity: draggingId === e.id ? 0.4 : 1,
+                    cursor: isManualOrder ? 'grab' : 'default',
+                    outline: (isManualOrder && draggingId && draggingId !== e.id) ? '2px dashed #c9a84c' : 'none',
+                    outlineOffset: '2px',
+                    transition: 'opacity 0.15s',
+                  }}>
+                  <RCard e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} onManual={upManual} onSave={() => dbSave(e)} isSaving={dbSaving[e.id]} dbMsg={dbMsg} onEdit={() => edit(e.id)} dragHandle={isManualOrder} />
+                </div>
+              ))}
             </div>
 
             {/* 카드 하단 건물추가 + 전체삭제 */}
@@ -1122,7 +1198,7 @@ function ERow({ e, i, n, sidos, sgs, ds, up, rm, go }) {
 }
 
 // ── 결과 카드 ──
-function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving, onEdit }) {
+function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving, onEdit, dragHandle }) {
   const it = e.res;
   const m  = e.manual || {};
   const [showManual, setShowManual] = React.useState(false);
@@ -1200,6 +1276,12 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving, onEd
         <input type="checkbox" checked={e.printSel} onChange={() => onTogglePrint(e.id)} />
         출력
       </label>
+
+      {/* 직접 배치 모드 드래그 힌트 */}
+      {dragHandle && (
+        <div className="screen-only" title="끌어서 순서 변경"
+          style={{position:'absolute',top:'6px',left:'50px',fontSize:'10px',color:'#c9a84c',cursor:'grab',zIndex:1,userSelect:'none',fontWeight:600}}>⠿ 이동</div>
+      )}
 
       {/* 번호 + 수정 + 삭제 버튼 */}
       <div style={{position:'absolute',top:0,right:0,display:'flex',alignItems:'center',gap:'2px'}}>
