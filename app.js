@@ -4,7 +4,8 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.8.4';
+const VERSION = 'v1.8.5';
+// v1.8.5: 저장목록 검색창 상시 표시·기본 정렬을 최근 등록순으로·목록 영역 확대
 // v1.8.4: 저장 목록 정렬·검색 추가(키워드·매매가/대지면적 범위)·화면 카드 정렬·카드에 작성일 표시
 // v1.8.3: 법정동코드 전면 정비 — 행정안전부 공식 코드(2024.8.1)로 R 전수 교체
 //          누락 동 462개 추가·기존 오류코드 다수 수정·부천시 일반구(원미/소사/오정구) 반영
@@ -229,9 +230,8 @@ function App() {
   const [dbMsg,       setDbMsg]     = useState('');     // 피드백 메시지
   const [showDbPanel, setShowDb]    = useState(false);  // 저장 목록 패널
   // 저장 목록 정렬·검색
-  const [dbSort,   setDbSort]   = useState({ key:'updated', asc:false });  // 기본: 최근 수정 위로
+  const [dbSort,   setDbSort]   = useState({ key:'created', asc:false });  // 기본: 최근 등록 위로
   const [dbFilter, setDbFilter] = useState({ kw:'', priceMin:'', priceMax:'', areaMin:'', areaMax:'' });
-  const [showFilter, setShowFilter] = useState(false);  // 검색 패널 펼침
   // 화면 카드 정렬 (기본: 추가순 유지)
   const [cardSort, setCardSort] = useState({ key:'none', asc:true });
   const [bizName,     setBN] = useState('');
@@ -715,11 +715,8 @@ function App() {
                     {dbMsg}
                   </span>
                 )}
+                <span style={{fontSize:'11px',color:'#888'}}>정렬</span>
                 <SortControl sort={dbSort} setSort={setDbSort} includeNone={false} />
-                <button onClick={() => setShowFilter(p => !p)}
-                  style={{background: (showFilter||hasFilter) ? '#c9a84c' : 'transparent', border:'1px solid #c9a84c', color:(showFilter||hasFilter) ? '#0d1b2a' : '#c9a84c', padding:'5px 10px', fontSize:'11px', cursor:'pointer'}}>
-                  🔍 검색{hasFilter ? ' •' : ''}
-                </button>
                 <button onClick={dbLoadList} disabled={dbLoading}
                   style={{background:'transparent',border:'1px solid #555',color:'#aaa',padding:'5px 10px',fontSize:'11px',cursor:'pointer'}}>
                   {dbLoading ? '로딩…' : '🔄 새로고침'}
@@ -729,9 +726,9 @@ function App() {
               </div>
             </div>
 
-            {/* 검색(필터) 패널 */}
-            {showFilter && (
-              <div style={{background:'rgba(255,255,255,0.05)',border:'1px solid #2a3a4a',padding:'12px 14px',marginBottom:'10px',display:'flex',gap:'14px',flexWrap:'wrap',alignItems:'flex-end'}}>
+            {/* 검색(필터) — 항상 표시 */}
+            <div style={{background:'rgba(255,255,255,0.05)',border:'1px solid #2a3a4a',padding:'10px 14px',marginBottom:'10px',display:'flex',gap:'14px',flexWrap:'wrap',alignItems:'flex-end'}}>
+                <span style={{fontSize:'11px',color:'#c9a84c',fontWeight:600,alignSelf:'center',whiteSpace:'nowrap'}}>🔍 검색</span>
                 <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
                   <span style={{fontSize:'10px',color:'#888'}}>키워드 (건물명·별칭·주소)</span>
                   <input type="text" value={dbFilter.kw} placeholder="예: 반포, 래미안, 방배동"
@@ -768,9 +765,8 @@ function App() {
                     필터 초기화
                   </button>
                 )}
-                <span style={{fontSize:'10px',color:'#666',marginLeft:'auto'}}>※ 대지면적은 ㎡ 기준 ({Math.round(33/PY*10)/10}㎡ ≈ 10평)</span>
-              </div>
-            )}
+                <span style={{fontSize:'10px',color:'#666',marginLeft:'auto',alignSelf:'center'}}>※ 대지면적은 ㎡ 기준 ({Math.round(33/PY*10)/10}㎡ ≈ 10평)</span>
+            </div>
 
             {dbList.length === 0 && !dbLoading && (
               <div style={{color:'#555',fontSize:'12px',padding:'16px 0',textAlign:'center'}}>저장된 건물이 없습니다. 건물 조회 후 💾 저장 버튼을 누르세요.</div>
@@ -782,7 +778,7 @@ function App() {
               <div style={{color:'#888',fontSize:'12px',padding:'16px 0',textAlign:'center'}}>조건에 맞는 건물이 없습니다.</div>
             )}
             {!dbLoading && dbShown.length > 0 && (
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:'8px',maxHeight:'280px',overflowY:'auto'}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:'8px',maxHeight:'min(55vh, 460px)',overflowY:'auto'}}>
                 {dbShown.map(row => {
                   const ppy = valPpyo(row);
                   const ar  = valPlatArea(row);
