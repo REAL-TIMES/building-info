@@ -4,7 +4,8 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.8.5';
+const VERSION = 'v1.8.6';
+// v1.8.6: 검색을 저장목록→카드 화면으로 이동·카드 기본 정렬 최근 등록순·저장목록 검색 제거
 // v1.8.5: 저장목록 검색창 상시 표시·기본 정렬을 최근 등록순으로·목록 영역 확대
 // v1.8.4: 저장 목록 정렬·검색 추가(키워드·매매가/대지면적 범위)·화면 카드 정렬·카드에 작성일 표시
 // v1.8.3: 법정동코드 전면 정비 — 행정안전부 공식 코드(2024.8.1)로 R 전수 교체
@@ -115,7 +116,7 @@ const valPpyo  = (s) => {              // 만원/평
   return (p > 0 && a > 0) ? Math.round(p * 10000 / (a / PY)) : 0;
 };
 const valUseApr = (s) => parseInt(String(srcApi(s).useAprDay || '').replace(/-/g, '')) || 0;
-const valCreated = (s) => new Date(s.created_at || s.createdAt || s.updated_at || s.updatedAt || 0).getTime() || 0;
+const valCreated = (s) => new Date(s.created_at || s.createdAt || s.updated_at || s.updatedAt || 0).getTime() || s._t || 0;
 const valUpdated = (s) => new Date(s.updated_at || s.updatedAt || s.created_at || s.createdAt || 0).getTime() || 0;
 // 행정동 정렬 키: 주소에서 번지 부분 제거 → "서울특별시 서초구 반포동"
 const valAddrKey = (s) => {
@@ -159,7 +160,8 @@ const sortItems = (arr, key, asc) => {
 // 저장 목록 필터 (키워드 + 매매가/대지면적 범위)
 const filterRows = (rows, f) => rows.filter(r => {
   if (f.kw) {
-    const hay = ((r.alias||'') + ' ' + (r.bld_nm||'') + ' ' + (r.plat_plc||'') + ' ' + (r.new_plat_plc||'')).toLowerCase();
+    const newAddr = r.new_plat_plc || (r.res && r.res.newPlatPlc) || '';
+    const hay = (srcName(r) + ' ' + srcAddr(r) + ' ' + newAddr).toLowerCase();
     if (!hay.includes(f.kw.trim().toLowerCase())) return false;
   }
   const price = valPrice(r);
@@ -194,7 +196,7 @@ const COLS = [
 // ── 엔트리 팩토리 ──
 let _id = 2;
 const mk = id => ({
-  id, sido:'서울특별시', sg:'강남구', dong:'', bj:'', alias:'',
+  id, _t: Date.now(), sido:'서울특별시', sg:'강남구', dong:'', bj:'', alias:'',
   man:false, mSg:'', mD:'', res:null, ld:false, err:null,
   price:'',
   printSel:true,
@@ -230,10 +232,10 @@ function App() {
   const [dbMsg,       setDbMsg]     = useState('');     // 피드백 메시지
   const [showDbPanel, setShowDb]    = useState(false);  // 저장 목록 패널
   // 저장 목록 정렬·검색
-  const [dbSort,   setDbSort]   = useState({ key:'created', asc:false });  // 기본: 최근 등록 위로
-  const [dbFilter, setDbFilter] = useState({ kw:'', priceMin:'', priceMax:'', areaMin:'', areaMax:'' });
-  // 화면 카드 정렬 (기본: 추가순 유지)
-  const [cardSort, setCardSort] = useState({ key:'none', asc:true });
+  const [dbSort,   setDbSort]   = useState({ key:'created', asc:false });  // 저장목록 기본: 최근 등록 위로
+  // 화면 카드 정렬·검색
+  const [cardSort,   setCardSort]   = useState({ key:'created', asc:false });  // 카드 기본: 최근 등록 위로
+  const [cardFilter, setCardFilter] = useState({ kw:'', priceMin:'', priceMax:'', areaMin:'', areaMax:'' });
   const [bizName,     setBN] = useState('');
   const [bizAddr,     setBA] = useState('');
   const [agentName,   setAN] = useState('');
@@ -641,11 +643,12 @@ function App() {
   const pendingE = ents.filter(e => !e.res);      // 미조회 (입력폼 표시용)
   const hasR  = rE.length > 0;
 
-  // 화면 카드: 정렬 적용 (cardSort.key='none'이면 추가순 유지)
-  const rESorted = sortItems(rE, cardSort.key, cardSort.asc);
-  // 저장 목록: 필터 → 정렬
-  const dbShown  = sortItems(filterRows(dbList, dbFilter), dbSort.key, dbSort.asc);
-  const hasFilter = dbFilter.kw || dbFilter.priceMin || dbFilter.priceMax || dbFilter.areaMin || dbFilter.areaMax;
+  // 화면 카드: 검색(필터) → 정렬
+  const rEFiltered = filterRows(rE, cardFilter);
+  const rESorted   = sortItems(rEFiltered, cardSort.key, cardSort.asc);
+  const cardHasFilter = cardFilter.kw || cardFilter.priceMin || cardFilter.priceMax || cardFilter.areaMin || cardFilter.areaMax;
+  // 저장 목록: 정렬만 (검색은 카드 화면으로 이동)
+  const dbShown  = sortItems(dbList, dbSort.key, dbSort.asc);
 
   // 입력폼에 빈 행이 항상 1개는 있도록 보장
   React.useEffect(() => {
@@ -704,9 +707,7 @@ function App() {
               <span style={{color:'#c9a84c',fontSize:'12px',fontWeight:600,letterSpacing:'0.1em'}}>
                 🗄 저장된 건물 목록
                 {dbList.length > 0 && (
-                  <span style={{color:'#888',fontWeight:400,marginLeft:'8px'}}>
-                    {hasFilter ? '전체 ' + dbList.length + '건 중 ' + dbShown.length + '건' : '전체 ' + dbList.length + '건'}
-                  </span>
+                  <span style={{color:'#888',fontWeight:400,marginLeft:'8px'}}>전체 {dbList.length}건</span>
                 )}
               </span>
               <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'}}>
@@ -726,56 +727,11 @@ function App() {
               </div>
             </div>
 
-            {/* 검색(필터) — 항상 표시 */}
-            <div style={{background:'rgba(255,255,255,0.05)',border:'1px solid #2a3a4a',padding:'10px 14px',marginBottom:'10px',display:'flex',gap:'14px',flexWrap:'wrap',alignItems:'flex-end'}}>
-                <span style={{fontSize:'11px',color:'#c9a84c',fontWeight:600,alignSelf:'center',whiteSpace:'nowrap'}}>🔍 검색</span>
-                <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
-                  <span style={{fontSize:'10px',color:'#888'}}>키워드 (건물명·별칭·주소)</span>
-                  <input type="text" value={dbFilter.kw} placeholder="예: 반포, 래미안, 방배동"
-                    onChange={v => setDbFilter(f => ({...f, kw:v.target.value}))}
-                    style={{width:'200px',fontSize:'12px',padding:'5px 8px'}} />
-                </div>
-                <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
-                  <span style={{fontSize:'10px',color:'#888'}}>매매가 (억)</span>
-                  <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
-                    <input type="text" inputMode="decimal" value={dbFilter.priceMin} placeholder="최소"
-                      onChange={v => setDbFilter(f => ({...f, priceMin:v.target.value}))}
-                      style={{width:'68px',fontSize:'12px',padding:'5px 6px'}} />
-                    <span style={{color:'#888',fontSize:'11px'}}>~</span>
-                    <input type="text" inputMode="decimal" value={dbFilter.priceMax} placeholder="최대"
-                      onChange={v => setDbFilter(f => ({...f, priceMax:v.target.value}))}
-                      style={{width:'68px',fontSize:'12px',padding:'5px 6px'}} />
-                  </div>
-                </div>
-                <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
-                  <span style={{fontSize:'10px',color:'#888'}}>대지면적 (㎡)</span>
-                  <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
-                    <input type="text" inputMode="decimal" value={dbFilter.areaMin} placeholder="최소"
-                      onChange={v => setDbFilter(f => ({...f, areaMin:v.target.value}))}
-                      style={{width:'68px',fontSize:'12px',padding:'5px 6px'}} />
-                    <span style={{color:'#888',fontSize:'11px'}}>~</span>
-                    <input type="text" inputMode="decimal" value={dbFilter.areaMax} placeholder="최대"
-                      onChange={v => setDbFilter(f => ({...f, areaMax:v.target.value}))}
-                      style={{width:'68px',fontSize:'12px',padding:'5px 6px'}} />
-                  </div>
-                </div>
-                {hasFilter && (
-                  <button onClick={() => setDbFilter({ kw:'', priceMin:'', priceMax:'', areaMin:'', areaMax:'' })}
-                    style={{background:'transparent',border:'1px solid #555',color:'#aaa',padding:'6px 12px',fontSize:'11px',cursor:'pointer',height:'30px'}}>
-                    필터 초기화
-                  </button>
-                )}
-                <span style={{fontSize:'10px',color:'#666',marginLeft:'auto',alignSelf:'center'}}>※ 대지면적은 ㎡ 기준 ({Math.round(33/PY*10)/10}㎡ ≈ 10평)</span>
-            </div>
-
             {dbList.length === 0 && !dbLoading && (
               <div style={{color:'#555',fontSize:'12px',padding:'16px 0',textAlign:'center'}}>저장된 건물이 없습니다. 건물 조회 후 💾 저장 버튼을 누르세요.</div>
             )}
             {dbLoading && (
               <div style={{color:'#888',fontSize:'12px',padding:'16px 0',textAlign:'center'}}>불러오는 중…</div>
-            )}
-            {!dbLoading && dbList.length > 0 && dbShown.length === 0 && (
-              <div style={{color:'#888',fontSize:'12px',padding:'16px 0',textAlign:'center'}}>조건에 맞는 건물이 없습니다.</div>
             )}
             {!dbLoading && dbShown.length > 0 && (
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:'8px',maxHeight:'min(55vh, 460px)',overflowY:'auto'}}>
@@ -877,6 +833,42 @@ function App() {
               <button className="bdk" style={{fontSize:'12px'}} onClick={() => window.print()}>🖨 인쇄 / PDF</button>
             </div>
           </div>
+          {/* 카드 검색 줄 */}
+          <div style={{borderTop:'1px solid #ece8e0',background:'#fbf9f5'}}>
+            <div style={{padding:'9px 28px',maxWidth:'1280px',margin:'0 auto',display:'flex',gap:'12px',flexWrap:'wrap',alignItems:'center'}}>
+              <span style={{fontSize:'11px',color:'#c9a84c',fontWeight:600,whiteSpace:'nowrap'}}>🔍 검색</span>
+              <input type="text" value={cardFilter.kw} placeholder="건물명·별칭·주소"
+                onChange={v => setCardFilter(f => ({...f, kw:v.target.value}))}
+                style={{width:'190px',fontSize:'12px',padding:'5px 8px'}} />
+              <span style={{fontSize:'11px',color:'#999',whiteSpace:'nowrap'}}>매매가(억)</span>
+              <div style={{display:'flex',alignItems:'center',gap:'3px'}}>
+                <input type="text" inputMode="decimal" value={cardFilter.priceMin} placeholder="최소"
+                  onChange={v => setCardFilter(f => ({...f, priceMin:v.target.value}))}
+                  style={{width:'60px',fontSize:'12px',padding:'5px 6px'}} />
+                <span style={{color:'#aaa',fontSize:'11px'}}>~</span>
+                <input type="text" inputMode="decimal" value={cardFilter.priceMax} placeholder="최대"
+                  onChange={v => setCardFilter(f => ({...f, priceMax:v.target.value}))}
+                  style={{width:'60px',fontSize:'12px',padding:'5px 6px'}} />
+              </div>
+              <span style={{fontSize:'11px',color:'#999',whiteSpace:'nowrap'}}>대지(㎡)</span>
+              <div style={{display:'flex',alignItems:'center',gap:'3px'}}>
+                <input type="text" inputMode="decimal" value={cardFilter.areaMin} placeholder="최소"
+                  onChange={v => setCardFilter(f => ({...f, areaMin:v.target.value}))}
+                  style={{width:'60px',fontSize:'12px',padding:'5px 6px'}} />
+                <span style={{color:'#aaa',fontSize:'11px'}}>~</span>
+                <input type="text" inputMode="decimal" value={cardFilter.areaMax} placeholder="최대"
+                  onChange={v => setCardFilter(f => ({...f, areaMax:v.target.value}))}
+                  style={{width:'60px',fontSize:'12px',padding:'5px 6px'}} />
+              </div>
+              {cardHasFilter && (
+                <>
+                  <button onClick={() => setCardFilter({ kw:'', priceMin:'', priceMax:'', areaMin:'', areaMax:'' })}
+                    className="blt" style={{fontSize:'11px',padding:'5px 12px'}}>초기화</button>
+                  <span style={{fontSize:'11px',color:'#888'}}>{rE.length}건 중 <b style={{color:'#0d1b2a'}}>{rEFiltered.length}건</b> 표시</span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -928,6 +920,13 @@ function App() {
         )}
         {hasR && vw==='cards' && (
           <>
+            {cardHasFilter && rESorted.length === 0 && (
+              <div className="no-print" style={{textAlign:'center',padding:'40px 0',color:'#aaa',fontSize:'13px'}}>
+                검색 조건에 맞는 건물이 없습니다.
+                <button onClick={() => setCardFilter({ kw:'', priceMin:'', priceMax:'', areaMin:'', areaMax:'' })}
+                  className="blt" style={{fontSize:'11px',padding:'4px 12px',marginLeft:'10px'}}>검색 초기화</button>
+              </div>
+            )}
             <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px',paddingBottom:'0'}}>
               {rESorted.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} onManual={upManual} onSave={() => dbSave(e)} isSaving={dbSaving[e.id]} dbMsg={dbMsg} onEdit={() => edit(e.id)} />)}
             </div>
