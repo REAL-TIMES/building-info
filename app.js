@@ -4,7 +4,8 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.8.3';
+const VERSION = 'v1.8.4';
+// v1.8.4: 저장 목록 정렬·검색 추가(키워드·매매가/대지면적 범위)·화면 카드 정렬·카드에 작성일 표시
 // v1.8.3: 법정동코드 전면 정비 — 행정안전부 공식 코드(2024.8.1)로 R 전수 교체
 //          누락 동 462개 추가·기존 오류코드 다수 수정·부천시 일반구(원미/소사/오정구) 반영
 // v1.8.2: 첫 접속 세션복원 병렬화(순차→Promise.all)로 로딩 속도 개선·복원중 안내 표시
@@ -97,6 +98,78 @@ const parseBJ = str => {
   return m ? { bun: p4(m[1]), ji: p4(m[2] || 0) } : null;
 };
 
+// ── 정렬·검색 공통 헬퍼 ──
+// dbList의 row(스네이크 케이스)와 화면 ent(res/manual) 양쪽 모두에서 값 추출
+const srcApi  = (s) => s.api_data || s.res || {};
+const srcAddr = (s) => s.plat_plc || (s.res && s.res.platPlc) || '';
+const srcName = (s) => s.alias || s.bld_nm || (s.res && s.res.bldNm) || '';
+const valPlatArea = (s) => {
+  const it = srcApi(s), m = s.manual || {};
+  const v = (m.platArea && parseFloat(m.platArea) > 0) ? m.platArea : it.platArea;
+  return parseFloat(v) || 0;            // ㎡
+};
+const valPrice = (s) => parseFloat(s.price) || 0;   // 억
+const valPpyo  = (s) => {              // 만원/평
+  const p = valPrice(s), a = valPlatArea(s);
+  return (p > 0 && a > 0) ? Math.round(p * 10000 / (a / PY)) : 0;
+};
+const valUseApr = (s) => parseInt(String(srcApi(s).useAprDay || '').replace(/-/g, '')) || 0;
+const valCreated = (s) => new Date(s.created_at || s.createdAt || s.updated_at || s.updatedAt || 0).getTime() || 0;
+const valUpdated = (s) => new Date(s.updated_at || s.updatedAt || s.created_at || s.createdAt || 0).getTime() || 0;
+// 행정동 정렬 키: 주소에서 번지 부분 제거 → "서울특별시 서초구 반포동"
+const valAddrKey = (s) => {
+  const plc = srcAddr(s);
+  return plc.replace(/\s*\S*\d+(-\d+)?번지.*$/, '').trim() || plc;
+};
+
+// 정렬 옵션 정의 (k=키, l=라벨, t='num'|'text', 값없음 뒤로)
+const SORT_DEFS = {
+  updated:  { l:'마지막 수정일', t:'num',  v:valUpdated },
+  created:  { l:'작성일',        t:'num',  v:valCreated },
+  price:    { l:'매매가',        t:'num',  v:valPrice },
+  ppyo:     { l:'평단가',        t:'num',  v:valPpyo },
+  platArea: { l:'대지면적',      t:'num',  v:valPlatArea },
+  useApr:   { l:'사용승인일',    t:'num',  v:valUseApr },
+  addr:     { l:'행정동',        t:'text', v:valAddrKey },
+  name:     { l:'건물명',        t:'text', v:srcName },
+};
+
+const sortItems = (arr, key, asc) => {
+  if (!key || key === 'none') return arr;       // 추가순 유지
+  const def = SORT_DEFS[key];
+  if (!def) return arr;
+  const dir = asc ? 1 : -1;
+  return [...arr].sort((a, b) => {
+    if (def.t === 'text') {
+      const ta = def.v(a) || '', tb = def.v(b) || '';
+      if (!ta && !tb) return 0;
+      if (!ta) return 1;                          // 값없음 항상 뒤로
+      if (!tb) return -1;
+      return ta.localeCompare(tb, 'ko') * dir;
+    }
+    const va = def.v(a), vb = def.v(b);
+    if (!va && !vb) return 0;
+    if (!va) return 1;                            // 값없음(0) 항상 뒤로
+    if (!vb) return -1;
+    return (va - vb) * dir;
+  });
+};
+
+// 저장 목록 필터 (키워드 + 매매가/대지면적 범위)
+const filterRows = (rows, f) => rows.filter(r => {
+  if (f.kw) {
+    const hay = ((r.alias||'') + ' ' + (r.bld_nm||'') + ' ' + (r.plat_plc||'') + ' ' + (r.new_plat_plc||'')).toLowerCase();
+    if (!hay.includes(f.kw.trim().toLowerCase())) return false;
+  }
+  const price = valPrice(r);
+  if (f.priceMin !== '' && f.priceMin != null && price < parseFloat(f.priceMin)) return false;
+  if (f.priceMax !== '' && f.priceMax != null && price > parseFloat(f.priceMax)) return false;
+  const area = valPlatArea(r);   // ㎡
+  if (f.areaMin !== '' && f.areaMin != null && area < parseFloat(f.areaMin)) return false;
+  if (f.areaMax !== '' && f.areaMax != null && area > parseFloat(f.areaMax)) return false;
+  return true;
+});
+
 // ── 비교표 항목 (높이 제거, 용도지역 추가) ──
 const COLS = [
   { l:'주용도',          f: i => [i.mainPurpsCdNm, i.etcPurps].filter(Boolean).join(' / ') || '—' },
@@ -155,6 +228,12 @@ function App() {
   const [dbSaving,    setDbSaving]  = useState({});     // {id: true} 저장 중
   const [dbMsg,       setDbMsg]     = useState('');     // 피드백 메시지
   const [showDbPanel, setShowDb]    = useState(false);  // 저장 목록 패널
+  // 저장 목록 정렬·검색
+  const [dbSort,   setDbSort]   = useState({ key:'updated', asc:false });  // 기본: 최근 수정 위로
+  const [dbFilter, setDbFilter] = useState({ kw:'', priceMin:'', priceMax:'', areaMin:'', areaMax:'' });
+  const [showFilter, setShowFilter] = useState(false);  // 검색 패널 펼침
+  // 화면 카드 정렬 (기본: 추가순 유지)
+  const [cardSort, setCardSort] = useState({ key:'none', asc:true });
   const [bizName,     setBN] = useState('');
   const [bizAddr,     setBA] = useState('');
   const [agentName,   setAN] = useState('');
@@ -223,11 +302,13 @@ function App() {
       };
       dbFetch('upsert', {}, body).then(d => {
         const savedId = d.row && d.row.id;
+        const cAt = d.row && d.row.created_at;
+        const uAt = d.row && d.row.updated_at;
         if (savedId && !ent.dbId) {
           // 신규 저장이면 dbId 기록
-          setE(p2 => p2.map(x => x.id === entId ? {...x, dbId: savedId, autoSaved: true} : x));
+          setE(p2 => p2.map(x => x.id === entId ? {...x, dbId: savedId, autoSaved: true, created_at: cAt||x.created_at, updated_at: uAt||x.updated_at} : x));
         } else {
-          setE(p2 => p2.map(x => x.id === entId ? {...x, autoSaved: true} : x));
+          setE(p2 => p2.map(x => x.id === entId ? {...x, autoSaved: true, created_at: cAt||x.created_at, updated_at: uAt||x.updated_at} : x));
         }
       }).catch(() => {/* 자동저장 실패는 조용히 무시 */});
       return prev;  // state는 그대로
@@ -258,7 +339,11 @@ function App() {
       const d = await dbFetch('upsert', {}, body);
       // 저장 후 dbId 기억 (다음 저장 시 업데이트)
       const savedId = d.row && d.row.id;
-      if (savedId) up(ent.id, { dbId: savedId });
+      const patch = {};
+      if (savedId) patch.dbId = savedId;
+      if (d.row && d.row.created_at) patch.created_at = d.row.created_at;
+      if (d.row && d.row.updated_at) patch.updated_at = d.row.updated_at;
+      if (Object.keys(patch).length) up(ent.id, patch);
       setDbMsg('✅ 저장 완료 — ' + (ent.alias || ent.res.platPlc));
       // 목록 갱신
       if (showDbPanel) dbLoadList();
@@ -287,6 +372,8 @@ function App() {
       newEnt.notes    = row.notes    || '';
       newEnt.memo     = row.memo     || '';
       newEnt.dbId     = row.id;
+      newEnt.created_at = row.created_at || null;
+      newEnt.updated_at = row.updated_at || null;
       // sido/sg/dong은 복원 불필요 (이미 res 있음)
       setE(p => [...p, newEnt]);
       setShowDb(false);
@@ -450,6 +537,8 @@ function App() {
             ne.notes    = row.notes    || '';
             ne.memo     = row.memo     || '';
             ne.dbId     = row.id;
+            ne.created_at = row.created_at || null;
+            ne.updated_at = row.updated_at || null;
             ne.autoSaved = true;
             loaded.push(ne);
             lastSaved.current[ne.id] = JSON.stringify({
@@ -552,12 +641,36 @@ function App() {
   const pendingE = ents.filter(e => !e.res);      // 미조회 (입력폼 표시용)
   const hasR  = rE.length > 0;
 
+  // 화면 카드: 정렬 적용 (cardSort.key='none'이면 추가순 유지)
+  const rESorted = sortItems(rE, cardSort.key, cardSort.asc);
+  // 저장 목록: 필터 → 정렬
+  const dbShown  = sortItems(filterRows(dbList, dbFilter), dbSort.key, dbSort.asc);
+  const hasFilter = dbFilter.kw || dbFilter.priceMin || dbFilter.priceMax || dbFilter.areaMin || dbFilter.areaMax;
+
   // 입력폼에 빈 행이 항상 1개는 있도록 보장
   React.useEffect(() => {
     if (pendingE.length === 0) {
       setE(p => [...p, mk(_id++)]);
     }
   }, [pendingE.length]);
+
+  // 정렬 드롭다운 (공용) — where: 'db' | 'card'
+  const SortControl = ({ sort, setSort, includeNone }) => (
+    <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
+      <select value={sort.key} onChange={v => setSort(s => ({...s, key:v.target.value}))}
+        style={{fontSize:'11px',padding:'4px 6px'}}>
+        {includeNone && <option value="none">정렬: 추가순</option>}
+        {Object.keys(SORT_DEFS).map(k => <option key={k} value={k}>{SORT_DEFS[k].l}</option>)}
+      </select>
+      <button onClick={() => setSort(s => ({...s, asc:!s.asc}))}
+        disabled={sort.key === 'none'}
+        title={sort.asc ? '오름차순' : '내림차순'}
+        style={{fontSize:'11px',padding:'4px 8px',cursor: sort.key==='none' ? 'default' : 'pointer',
+                background: sort.key==='none' ? '#eee' : '#fff', border:'1px solid #ccc', color:'#555', minWidth:'34px'}}>
+        {sort.asc ? '↑' : '↓'}
+      </button>
+    </div>
+  );
 
   return (
     <div style={{fontFamily:"'Noto Sans KR',sans-serif",background:'#f7f4ef',minHeight:'100vh',color:'#1a1a2e'}}>
@@ -587,14 +700,26 @@ function App() {
       {showDbPanel && (
         <div className="no-print" style={{background:'#0d1b2a',borderBottom:'2px solid #c9a84c',padding:'14px 28px'}}>
           <div style={{maxWidth:'1280px',margin:'0 auto'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
-              <span style={{color:'#c9a84c',fontSize:'12px',fontWeight:600,letterSpacing:'0.1em'}}>🗄 저장된 건물 목록</span>
-              <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px',flexWrap:'wrap',gap:'8px'}}>
+              <span style={{color:'#c9a84c',fontSize:'12px',fontWeight:600,letterSpacing:'0.1em'}}>
+                🗄 저장된 건물 목록
+                {dbList.length > 0 && (
+                  <span style={{color:'#888',fontWeight:400,marginLeft:'8px'}}>
+                    {hasFilter ? '전체 ' + dbList.length + '건 중 ' + dbShown.length + '건' : '전체 ' + dbList.length + '건'}
+                  </span>
+                )}
+              </span>
+              <div style={{display:'flex',gap:'8px',alignItems:'center',flexWrap:'wrap'}}>
                 {dbMsg && (
                   <span style={{fontSize:'12px',color: dbMsg.startsWith('✅') ? '#7fdc8a' : dbMsg.startsWith('🗑') ? '#f0c060' : '#f08080', background:'rgba(255,255,255,0.08)', padding:'4px 10px'}}>
                     {dbMsg}
                   </span>
                 )}
+                <SortControl sort={dbSort} setSort={setDbSort} includeNone={false} />
+                <button onClick={() => setShowFilter(p => !p)}
+                  style={{background: (showFilter||hasFilter) ? '#c9a84c' : 'transparent', border:'1px solid #c9a84c', color:(showFilter||hasFilter) ? '#0d1b2a' : '#c9a84c', padding:'5px 10px', fontSize:'11px', cursor:'pointer'}}>
+                  🔍 검색{hasFilter ? ' •' : ''}
+                </button>
                 <button onClick={dbLoadList} disabled={dbLoading}
                   style={{background:'transparent',border:'1px solid #555',color:'#aaa',padding:'5px 10px',fontSize:'11px',cursor:'pointer'}}>
                   {dbLoading ? '로딩…' : '🔄 새로고침'}
@@ -603,15 +728,65 @@ function App() {
                   style={{background:'transparent',border:'none',color:'#666',fontSize:'18px',cursor:'pointer',lineHeight:1,padding:'4px'}}>×</button>
               </div>
             </div>
+
+            {/* 검색(필터) 패널 */}
+            {showFilter && (
+              <div style={{background:'rgba(255,255,255,0.05)',border:'1px solid #2a3a4a',padding:'12px 14px',marginBottom:'10px',display:'flex',gap:'14px',flexWrap:'wrap',alignItems:'flex-end'}}>
+                <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                  <span style={{fontSize:'10px',color:'#888'}}>키워드 (건물명·별칭·주소)</span>
+                  <input type="text" value={dbFilter.kw} placeholder="예: 반포, 래미안, 방배동"
+                    onChange={v => setDbFilter(f => ({...f, kw:v.target.value}))}
+                    style={{width:'200px',fontSize:'12px',padding:'5px 8px'}} />
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                  <span style={{fontSize:'10px',color:'#888'}}>매매가 (억)</span>
+                  <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
+                    <input type="text" inputMode="decimal" value={dbFilter.priceMin} placeholder="최소"
+                      onChange={v => setDbFilter(f => ({...f, priceMin:v.target.value}))}
+                      style={{width:'68px',fontSize:'12px',padding:'5px 6px'}} />
+                    <span style={{color:'#888',fontSize:'11px'}}>~</span>
+                    <input type="text" inputMode="decimal" value={dbFilter.priceMax} placeholder="최대"
+                      onChange={v => setDbFilter(f => ({...f, priceMax:v.target.value}))}
+                      style={{width:'68px',fontSize:'12px',padding:'5px 6px'}} />
+                  </div>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:'4px'}}>
+                  <span style={{fontSize:'10px',color:'#888'}}>대지면적 (㎡)</span>
+                  <div style={{display:'flex',alignItems:'center',gap:'4px'}}>
+                    <input type="text" inputMode="decimal" value={dbFilter.areaMin} placeholder="최소"
+                      onChange={v => setDbFilter(f => ({...f, areaMin:v.target.value}))}
+                      style={{width:'68px',fontSize:'12px',padding:'5px 6px'}} />
+                    <span style={{color:'#888',fontSize:'11px'}}>~</span>
+                    <input type="text" inputMode="decimal" value={dbFilter.areaMax} placeholder="최대"
+                      onChange={v => setDbFilter(f => ({...f, areaMax:v.target.value}))}
+                      style={{width:'68px',fontSize:'12px',padding:'5px 6px'}} />
+                  </div>
+                </div>
+                {hasFilter && (
+                  <button onClick={() => setDbFilter({ kw:'', priceMin:'', priceMax:'', areaMin:'', areaMax:'' })}
+                    style={{background:'transparent',border:'1px solid #555',color:'#aaa',padding:'6px 12px',fontSize:'11px',cursor:'pointer',height:'30px'}}>
+                    필터 초기화
+                  </button>
+                )}
+                <span style={{fontSize:'10px',color:'#666',marginLeft:'auto'}}>※ 대지면적은 ㎡ 기준 ({Math.round(33/PY*10)/10}㎡ ≈ 10평)</span>
+              </div>
+            )}
+
             {dbList.length === 0 && !dbLoading && (
               <div style={{color:'#555',fontSize:'12px',padding:'16px 0',textAlign:'center'}}>저장된 건물이 없습니다. 건물 조회 후 💾 저장 버튼을 누르세요.</div>
             )}
             {dbLoading && (
               <div style={{color:'#888',fontSize:'12px',padding:'16px 0',textAlign:'center'}}>불러오는 중…</div>
             )}
-            {!dbLoading && dbList.length > 0 && (
+            {!dbLoading && dbList.length > 0 && dbShown.length === 0 && (
+              <div style={{color:'#888',fontSize:'12px',padding:'16px 0',textAlign:'center'}}>조건에 맞는 건물이 없습니다.</div>
+            )}
+            {!dbLoading && dbShown.length > 0 && (
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:'8px',maxHeight:'280px',overflowY:'auto'}}>
-                {dbList.map(row => (
+                {dbShown.map(row => {
+                  const ppy = valPpyo(row);
+                  const ar  = valPlatArea(row);
+                  return (
                   <div key={row.id} style={{background:'rgba(255,255,255,0.05)',border:'1px solid #2a3a4a',padding:'10px 12px',display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'8px'}}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:'12px',color:'#f7f4ef',fontWeight:600,marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
@@ -620,9 +795,14 @@ function App() {
                       <div style={{fontSize:'10px',color:'#888',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                         {row.plat_plc || '—'}
                       </div>
-                      {row.price && <div style={{fontSize:'10px',color:'#c9a84c',marginTop:'2px'}}>{row.price}억원</div>}
+                      <div style={{display:'flex',gap:'8px',flexWrap:'wrap',marginTop:'3px'}}>
+                        {row.price && <span style={{fontSize:'10px',color:'#c9a84c'}}>{row.price}억원</span>}
+                        {ppy > 0 && <span style={{fontSize:'10px',color:'#8aa'}}>평당 {ppy.toLocaleString()}만</span>}
+                        {ar > 0 && <span style={{fontSize:'10px',color:'#8aa'}}>대지 {(ar/PY).toFixed(0)}평</span>}
+                      </div>
                       <div style={{fontSize:'9px',color:'#555',marginTop:'3px'}}>
-                        {row.updated_at ? new Date(row.updated_at).toLocaleDateString('ko-KR') : ''}
+                        {row.updated_at ? '수정 ' + new Date(row.updated_at).toLocaleDateString('ko-KR') : ''}
+                        {row.created_at && row.created_at !== row.updated_at ? '  ·  등록 ' + new Date(row.created_at).toLocaleDateString('ko-KR') : ''}
                       </div>
                     </div>
                     <div style={{display:'flex',flexDirection:'column',gap:'4px',flexShrink:0}}>
@@ -636,7 +816,8 @@ function App() {
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -677,10 +858,13 @@ function App() {
       {hasR && (
         <div className="no-print" style={{position:'sticky',top:0,zIndex:90,background:'#f7f4ef',borderBottom:'1px solid #e0dcd4',boxShadow:'0 2px 6px rgba(0,0,0,0.06)'}}>
           <div style={{padding:'12px 28px',display:'flex',gap:'8px',justifyContent:'space-between',maxWidth:'1280px',margin:'0 auto',flexWrap:'wrap',alignItems:'center'}}>
-            <div style={{display:'flex',gap:'6px'}}>
+            <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
               <button className={vw==='cards'  ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('cards')}>▣ 카드</button>
               <button className={vw==='table'  ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('table')}>≡ 비교표</button>
               <button className={vw==='report' ? 'bdk' : 'blt'} style={{fontSize:'12px',padding:'7px 14px'}} onClick={() => setV('report')}>📄 리포트</button>
+              <span style={{width:'1px',height:'20px',background:'#d8d4cc',margin:'0 4px'}} />
+              <span style={{fontSize:'11px',color:'#aaa'}}>정렬</span>
+              <SortControl sort={cardSort} setSort={setCardSort} includeNone={true} />
             </div>
             <div style={{display:'flex',gap:'6px',alignItems:'center',flexWrap:'wrap'}}>
               {vw === 'cards' && <>
@@ -749,7 +933,7 @@ function App() {
         {hasR && vw==='cards' && (
           <>
             <div className="cg" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:'18px',paddingTop:'8px',paddingBottom:'0'}}>
-              {rE.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} onManual={upManual} onSave={() => dbSave(e)} isSaving={dbSaving[e.id]} dbMsg={dbMsg} onEdit={() => edit(e.id)} />)}
+              {rESorted.map((e, i) => <RCard key={e.id} e={e} i={i} onTogglePrint={togglePrint} onDelete={() => rm(e.id)} onManual={upManual} onSave={() => dbSave(e)} isSaving={dbSaving[e.id]} dbMsg={dbMsg} onEdit={() => edit(e.id)} />)}
             </div>
 
             {/* 카드 하단 건물추가 + 전체삭제 */}
@@ -776,8 +960,8 @@ function App() {
             {/* 카드 인쇄 푸터 — @bottom-center CSS로 대체됨 */}
           </>
         )}
-        {hasR && vw==='table'  && <CmpT entries={rE} togglePrint={togglePrint} printMode={printMode} reportTitle={reportTitle} reportDate={reportDate} totalSel={rE.filter(e=>e.printSel).length} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />}
-        {hasR && vw==='report' && <ReportView entries={rE} reportTitle={reportTitle} reportDate={reportDate} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes} onSave={dbSave} dbSaving={dbSaving} onEdit={edit} />}
+        {hasR && vw==='table'  && <CmpT entries={rESorted} togglePrint={togglePrint} printMode={printMode} reportTitle={reportTitle} reportDate={reportDate} totalSel={rE.filter(e=>e.printSel).length} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />}
+        {hasR && vw==='report' && <ReportView entries={rESorted} reportTitle={reportTitle} reportDate={reportDate} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes} onSave={dbSave} dbSaving={dbSaving} onEdit={edit} />}
       </main>
 
       {/* ── 출력 정보 설정 패널 (화면 전용) ── */}
@@ -1051,6 +1235,12 @@ function RCard({ e, i, onTogglePrint, onDelete, onManual, onSave, isSaving, onEd
         <div style={{fontFamily:"'Noto Sans KR','Apple SD Gothic Neo',sans-serif",fontSize:'20px',fontWeight:600,lineHeight:1.2,marginBottom:'4px',color:'#0d1b2a'}}>{title}</div>
         <div style={{fontSize:'11px',color:'#999'}}>{it.platPlc}</div>
         {it.newPlatPlc && <div style={{fontSize:'10px',color:'#bbb',marginTop:'2px'}}>{it.newPlatPlc}</div>}
+        {(e.updated_at || e.created_at) && (
+          <div className="no-print" style={{fontSize:'9px',color:'#c5c0b6',marginTop:'4px'}}>
+            {e.created_at && <span>등록 {new Date(e.created_at).toLocaleDateString('ko-KR')}</span>}
+            {e.updated_at && e.updated_at !== e.created_at && <span>{e.created_at ? '  ·  ' : ''}수정 {new Date(e.updated_at).toLocaleDateString('ko-KR')}</span>}
+          </div>
+        )}
       </div>
 
       {/* 매매가 — 블랙박스 (리포트와 동일 스타일) */}
