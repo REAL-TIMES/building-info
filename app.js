@@ -4,7 +4,8 @@
    주의: import/export 사용 금지 (Babel standalone 제약)
    ════════════════════════════════════════════════════ */
 
-const VERSION = 'v1.8.7';
+const VERSION = 'v1.8.8';
+// v1.8.8: 출력 전체선택/해제/선택삭제 추가·리포트도 선택 매물만 인쇄·카드/비교표/리포트 출력선택 일관화
 // v1.8.7: 대지면적 검색 평 단위·행정동 다중선택 필터·카드 직접배치(드래그) 모드
 // v1.8.6: 검색을 저장목록→카드 화면으로 이동·카드 기본 정렬 최근 등록순·저장목록 검색 제거
 // v1.8.5: 저장목록 검색창 상시 표시·기본 정렬을 최근 등록순으로·목록 영역 확대
@@ -264,6 +265,18 @@ function App() {
   const add         = ()      => setE(p => [...p, mk(_id++)]);
   const rm          = id      => setE(p => p.filter(e => e.id !== id));
   const togglePrint = id      => setE(p => p.map(e => e.id === id ? {...e, printSel:!e.printSel} : e));
+  // 출력 선택 일괄 제어 (조회 완료된 카드 대상)
+  const selectAllCards  = () => setE(p => p.map(e => e.res ? {...e, printSel:true}  : e));
+  const selectNoneCards = () => setE(p => p.map(e => e.res ? {...e, printSel:false} : e));
+  const deleteSelectedCards = () => {
+    const n = ents.filter(e => e.res && e.printSel).length;
+    if (n === 0) { setDbMsg('선택된 건물이 없습니다'); return; }
+    if (!window.confirm(n + '개 건물을 화면에서 제거할까요?\n(DB 저장 목록에는 그대로 남아있습니다)')) return;
+    setE(p => {
+      const kept = p.filter(e => !(e.res && e.printSel));
+      return kept.length ? kept : [mk(_id++)];
+    });
+  };
 
   // ── DB API 호출 헬퍼 ──
   const dbFetch = async (action, params, body) => {
@@ -660,6 +673,7 @@ function App() {
   const cardHasFilter = cardFilter.kw || (cardFilter.dongs && cardFilter.dongs.length) || cardFilter.priceMin || cardFilter.priceMax || cardFilter.areaMin || cardFilter.areaMax;
   // 화면 카드에 존재하는 행정동 목록 (다중선택 칩용)
   const availableDongs = Array.from(new Set(rE.map(valDong).filter(Boolean))).sort((a,b) => a.localeCompare(b,'ko'));
+  const selCount = rE.filter(e => e.printSel).length;   // 출력 선택된 건수
   // 저장 목록: 정렬만 (검색은 카드 화면으로 이동)
   const dbShown  = sortItems(dbList, dbSort.key, dbSort.asc);
 
@@ -862,7 +876,20 @@ function App() {
               <input type="date" value={reportDate}
                 onChange={v => setRD(v.target.value)}
                 style={{fontSize:'12px',width:'140px'}} />
-              <button className="bdk" style={{fontSize:'12px'}} onClick={() => window.print()}>🖨 인쇄 / PDF</button>
+              <button className="bdk" style={{fontSize:'12px'}} onClick={() => { if (selCount === 0) { setDbMsg('출력할 건물을 선택하세요'); return; } window.print(); }}>🖨 인쇄 / PDF</button>
+            </div>
+          </div>
+          {/* 출력 선택 컨트롤 줄 — 모든 뷰 공통 */}
+          <div style={{borderTop:'1px solid #ece8e0',background:'#f2efe8'}}>
+            <div style={{padding:'8px 28px',maxWidth:'1280px',margin:'0 auto',display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'center'}}>
+              <span style={{fontSize:'11px',color:'#555',whiteSpace:'nowrap'}}>
+                출력 선택 <b style={{color:'#0d1b2a',fontSize:'13px'}}>{selCount}</b>
+                <span style={{color:'#999'}}> / {rE.length}건</span>
+              </span>
+              <button className="blt" style={{fontSize:'11px',padding:'5px 12px'}} onClick={selectAllCards}>☑ 전체 선택</button>
+              <button className="blt" style={{fontSize:'11px',padding:'5px 12px'}} onClick={selectNoneCards}>☐ 선택 해제</button>
+              <button className="blt" style={{fontSize:'11px',padding:'5px 12px',color:'#c0392b',borderColor:'#e8b4b0'}} onClick={deleteSelectedCards}>🗑 선택 삭제</button>
+              <span style={{fontSize:'11px',color:'#999',marginLeft:'auto',whiteSpace:'nowrap'}}>🖨 인쇄·PDF는 선택된 건물만 출력됩니다</span>
             </div>
           </div>
           {/* 카드 검색 줄 */}
@@ -935,6 +962,8 @@ function App() {
             + ' .print-main { padding: 0 !important; max-width: 100% !important; margin: 0 !important; background: #ffffff !important; }'
             + ' .report-card { page-break-after: always; break-after: page; margin-bottom: 0 !important;'
             + '   display: flex !important; flex-direction: column !important; min-height: 271mm; box-sizing: border-box; }'
+            + ' .report-card.print-hide { display: none !important; }'
+            + ' .report-card.report-card-lastsel { page-break-after: auto !important; break-after: auto !important; }'
             + ' .report-card:last-child { page-break-after: auto; break-after: auto; }'
             + ' .report-body { flex: 1 1 auto !important; }'              /* 본문이 남는 공간 차지 */
             + ' .report-footer { margin-top: auto !important; }'          /* 푸터 페이지 하단 고정 */
@@ -1032,7 +1061,7 @@ function App() {
           </>
         )}
         {hasR && vw==='table'  && <CmpT entries={rESorted} togglePrint={togglePrint} printMode={printMode} reportTitle={reportTitle} reportDate={reportDate} totalSel={rE.filter(e=>e.printSel).length} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} />}
-        {hasR && vw==='report' && <ReportView entries={rESorted} reportTitle={reportTitle} reportDate={reportDate} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes} onSave={dbSave} dbSaving={dbSaving} onEdit={edit} />}
+        {hasR && vw==='report' && <ReportView entries={rESorted} reportTitle={reportTitle} reportDate={reportDate} bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc} upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes} onSave={dbSave} dbSaving={dbSaving} onEdit={edit} togglePrint={togglePrint} />}
       </main>
 
       {/* ── 출력 정보 설정 패널 (화면 전용) ── */}
@@ -1745,7 +1774,9 @@ const LEGAL_VL = {
 };
 
 // ── 리포트 뷰 ──
-function ReportView({ entries, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes, onSave, dbSaving, onEdit }) {
+function ReportView({ entries, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes, onSave, dbSaving, onEdit, togglePrint }) {
+  const printIds = entries.filter(e => e.printSel).map(e => e.id);
+  const lastPrintId = printIds[printIds.length - 1];
   return (
     <div>
       {entries.map((e, i) => (
@@ -1753,14 +1784,14 @@ function ReportView({ entries, reportTitle, reportDate, bizName, bizAddr, agentN
           reportTitle={reportTitle} reportDate={reportDate}
           bizName={bizName} bizAddr={bizAddr} agentName={agentName} agentPhone={agentPhone} logoSrc={logoSrc}
           upAnalysis={upAnalysis} upIncome={upIncome} addPhoto={addPhoto} rmPhoto={rmPhoto} setMapPhoto={setMapPhoto} upNotes={upNotes}
-          onSave={() => onSave(e)} isSaving={dbSaving[e.id]} onEdit={() => onEdit(e.id)} />
+          onSave={() => onSave(e)} isSaving={dbSaving[e.id]} onEdit={() => onEdit(e.id)} onTogglePrint={() => togglePrint(e.id)} isLastPrint={e.id === lastPrintId} />
       ))}
     </div>
   );
 }
 
 // ── 개별 건물 리포트 카드 ──
-function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes, onSave, isSaving, onEdit }) {
+function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName, agentPhone, logoSrc, upAnalysis, upIncome, addPhoto, rmPhoto, setMapPhoto, upNotes, onSave, isSaving, onEdit, onTogglePrint, isLastPrint }) {
   const it      = e.res;
   const mg      = mergeEntry(e);
   const an      = e.analysis  || {};
@@ -1854,14 +1885,19 @@ function ReportCard({ e, i, reportTitle, reportDate, bizName, bizAddr, agentName
   );
 
   return (
-    <div className="report-card" style={{background:'white',marginBottom:'28px'}}>
+    <div className={'report-card' + (e.printSel ? '' : ' print-hide') + (isLastPrint ? ' report-card-lastsel' : '')} style={{background:'white',marginBottom:'28px'}}>
 
       {/* ── 리포트 헤더 ── */}
       <div style={{background:'#0d1b2a',height:'6px',WebkitPrintColorAdjust:'exact',printColorAdjust:'exact'}} />
       <div style={{background:'white',padding:'12px 20px',borderBottom:'2.5px solid #0d1b2a'}}>
-        {/* 상단 라인: 회사명(좌) · 작성일(우) */}
+        {/* 상단 라인: 출력선택+회사명(좌) · 작성일(우) */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
-          <div style={{fontSize:'8px',letterSpacing:'0.25em',color:'#c9a84c',fontWeight:600}}>TIMES REAL ESTATE · 건물 분석 리포트</div>
+          <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+            <label className="no-print" style={{display:'flex',alignItems:'center',gap:'4px',fontSize:'11px',color: e.printSel ? '#0d1b2a' : '#bbb',cursor:'pointer',fontWeight:600,whiteSpace:'nowrap'}}>
+              <input type="checkbox" checked={e.printSel} onChange={onTogglePrint} />출력
+            </label>
+            <div style={{fontSize:'8px',letterSpacing:'0.25em',color:'#c9a84c',fontWeight:600}}>TIMES REAL ESTATE · 건물 분석 리포트</div>
+          </div>
           <div style={{fontSize:'10px',color:'#888'}}>작성일 {reportDate}</div>
         </div>
         {/* 본문 라인: 보고서 제목(좌) · 별칭+주소(우) */}
